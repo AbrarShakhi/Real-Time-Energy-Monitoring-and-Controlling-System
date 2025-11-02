@@ -1,42 +1,44 @@
 package com.abrarshakhi.rtemcs;
 
 import android.os.Bundle;
-import android.view.View;
-import android.widget.ArrayAdapter;
+import android.widget.Button;
 import android.widget.ListView;
-import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 
-import com.abrarshakhi.rtemcs.databinding.ActivityMainBinding;
-
 import java.util.ArrayList;
+import java.util.List;
 
 public class MainActivity extends AppCompatActivity {
 
-    private ActivityMainBinding binding;
-    private ArrayList<String> deviceList;
-    private ArrayAdapter<String> deviceAdapter;
+    ListView lvListOfDeviceMain;
+    Button btnAddDeviceMain;
+
+    List<DeviceListAdapter.Device> deviceList = new ArrayList<>();
+    DeviceListAdapter deviceListAdapter;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main);
 
-        binding = ActivityMainBinding.inflate(getLayoutInflater());
-        setContentView(binding.getRoot());
+        lvListOfDeviceMain = findViewById(R.id.lvListOfDeviceMain);
+        btnAddDeviceMain = findViewById(R.id.btnAddDeviceMain);
 
-        deviceList = new ArrayList<>();
-        deviceAdapter = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, deviceList);
+        deviceListAdapter = new DeviceListAdapter(this, deviceList);
+        lvListOfDeviceMain.setAdapter(deviceListAdapter);
 
-        binding.lvListOfDeviceMain.setAdapter(deviceAdapter);
+        btnAddDeviceMain.setOnClickListener(v -> addDeviceCard());
+    }
 
-        binding.btnAddDeviceMain.setOnClickListener(v -> {
-            String newDevice = "Device " + (deviceList.size() + 1);
-            deviceList.add(newDevice);
+    private void addDeviceCard() {
+        DeviceListAdapter.Device newDevice = new DeviceListAdapter.Device(
+                "Device " + (deviceList.size() + 1),
+                "Device information",
+                "Stopped"
+        );
 
-            deviceAdapter.notifyDataSetChanged();
-
-            Toast.makeText(MainActivity.this, newDevice + " added!", Toast.LENGTH_SHORT).show();
-        });
+        deviceList.add(newDevice);
+        deviceListAdapter.notifyDataSetChanged();
     }
 }
