@@ -46,7 +46,6 @@ dependencies {
     androidTestImplementation(libs.ext.junit)
     androidTestImplementation(libs.espresso.core)
 
-    implementation("com.squareup.retrofit2:retrofit:3.0.0")
-    implementation("com.squareup.retrofit2:converter-gson:3.0.0")
-    implementation("com.squareup.okhttp3:logging-interceptor:5.3.0")
+    implementation("com.tuya.smart:tuya-smart-android-sdk:5.7.0")
+    implementation("com.tuya.smart:tuyasmart-home-sdk:5.7.0")
 }

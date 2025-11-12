@@ -11,11 +11,16 @@ pluginManagement {
         gradlePluginPortal()
     }
 }
+
 dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
     repositories {
         google()
         mavenCentral()
+
+        maven("https://maven-other.tuya.com/repository/maven-releases/")
+        maven("https://maven-other.tuya.com/repository/maven-snapshots/")
+        maven("https://jitpack.io")
     }
 }
 

@@ -1,4 +1,5 @@
 <androidx.constraintlayout.widget.ConstraintLayout
+    android:id="@+id/main"
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
@@ -27,16 +28,6 @@
             android:textColor="@color/white"
             android:textStyle="bold"
             android:textSize="25sp"/>
-
-        <ImageButton
-            android:id="@+id/btnSettings"
-            android:layout_width="30dp"
-            android:layout_height="30dp"
-            android:src="@drawable/ic_account"
-            android:contentDescription="Settings"
-            android:layout_gravity="end"
-            android:padding="5dp"
-            android:layout_marginEnd="10dp"/>
     </LinearLayout>
 
     <ListView
