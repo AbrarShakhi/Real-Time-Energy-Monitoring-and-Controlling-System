@@ -15,7 +15,7 @@
             android:name=".DeviceDetailActivity"
             android:exported="false" />
         <activity
-            android:name=".NewDeviceActivity"
+            android:name=".DeviceInfoActivity"
             android:exported="false" />
         <activity
             android:name=".MainActivity"

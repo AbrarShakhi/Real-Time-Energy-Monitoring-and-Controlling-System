@@ -34,7 +34,7 @@ public class DeviceInfoDb extends SQLiteOpenHelper {
         String createTableSQL = "CREATE TABLE " + TABLE_NAME + " (" +
             COL_ID + " INTEGER PRIMARY KEY AUTOINCREMENT, " +
             COL_DEVICE_NAME + " TEXT NOT NULL, " +
-            COL_DEVICE_ID + " TEXT NOT NULL, " +
+            COL_DEVICE_ID + " TEXT NOT NULL UNIQUE, " +
             COL_ACCESS_ID + " TEXT NOT NULL, " +
             COL_ACCESS_SECRET + " TEXT NOT NULL" +
             ");";
@@ -72,7 +72,13 @@ public class DeviceInfoDb extends SQLiteOpenHelper {
                 String accessId = cursor.getString(cursor.getColumnIndexOrThrow(COL_ACCESS_ID));
                 String accessSecret = cursor.getString(cursor.getColumnIndexOrThrow(COL_ACCESS_SECRET));
 
-                DeviceInfo device = new DeviceInfo(id, deviceName, deviceId, accessId, accessSecret);
+                DeviceInfo device = new DeviceInfo.Builder()
+                    .id(id)
+                    .deviceName(deviceName)
+                    .deviceId(deviceId)
+                    .accessId(accessId)
+                    .accessSecret(accessSecret)
+                    .build();
                 devices.add(device);
             } while (cursor.moveToNext());
         }
@@ -99,5 +105,67 @@ public class DeviceInfoDb extends SQLiteOpenHelper {
         int rowsUpdated = db.update(TABLE_NAME, values, COL_ID + "=?", new String[]{String.valueOf(deviceInfo.getId())});
         db.close();
         return rowsUpdated;
+    }
+
+    public DeviceInfo findById(int id) {
+        SQLiteDatabase db = this.getReadableDatabase();
+        Cursor cursor = db.query(
+            TABLE_NAME,
+            null, // all columns
+            COL_ID + "=?",
+            new String[]{String.valueOf(id)},
+            null, null, null
+        );
+
+        DeviceInfo device = null;
+        if (cursor.moveToFirst()) {
+            String deviceName = cursor.getString(cursor.getColumnIndexOrThrow(COL_DEVICE_NAME));
+            String deviceId = cursor.getString(cursor.getColumnIndexOrThrow(COL_DEVICE_ID));
+            String accessId = cursor.getString(cursor.getColumnIndexOrThrow(COL_ACCESS_ID));
+            String accessSecret = cursor.getString(cursor.getColumnIndexOrThrow(COL_ACCESS_SECRET));
+
+            device = new DeviceInfo.Builder()
+                .id(id)
+                .deviceName(deviceName)
+                .deviceId(deviceId)
+                .accessId(accessId)
+                .accessSecret(accessSecret)
+                .build();
+        }
+
+        cursor.close();
+        db.close();
+        return device;
+    }
+
+    public DeviceInfo findByDeviceId(String deviceId) {
+        SQLiteDatabase db = this.getReadableDatabase();
+        Cursor cursor = db.query(
+            TABLE_NAME,
+            null, // all columns
+            COL_DEVICE_ID + "=?",
+            new String[]{deviceId},
+            null, null, null
+        );
+
+        DeviceInfo device = null;
+        if (cursor.moveToFirst()) {
+            int id = cursor.getInt(cursor.getColumnIndexOrThrow(COL_ID));
+            String deviceName = cursor.getString(cursor.getColumnIndexOrThrow(COL_DEVICE_NAME));
+            String accessId = cursor.getString(cursor.getColumnIndexOrThrow(COL_ACCESS_ID));
+            String accessSecret = cursor.getString(cursor.getColumnIndexOrThrow(COL_ACCESS_SECRET));
+
+            device = new DeviceInfo.Builder()
+                .id(id)
+                .deviceName(deviceName)
+                .deviceId(deviceId)
+                .accessId(accessId)
+                .accessSecret(accessSecret)
+                .build();
+        }
+
+        cursor.close();
+        db.close();
+        return device;
     }
 }

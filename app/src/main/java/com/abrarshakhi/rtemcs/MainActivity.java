@@ -46,7 +46,7 @@ public class MainActivity extends AppCompatActivity {
         deviceListAdapter = new DeviceListAdapter(this, deviceInfoList);
         lvListOfDevice.setAdapter(deviceListAdapter);
 
-        btnAddDevice.setOnClickListener(v -> startActivity(new Intent(this, NewDeviceActivity.class)));
+        btnAddDevice.setOnClickListener(v -> startActivity(new Intent(MainActivity.this, DeviceInfoActivity.class)));
     }
 
     @Override
