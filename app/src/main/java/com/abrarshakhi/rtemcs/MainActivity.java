@@ -1,93 +1,63 @@
 package com.abrarshakhi.rtemcs;
 
+import android.content.Intent;
 import android.os.Bundle;
-import android.widget.Button;
 import android.widget.ListView;
-import android.widget.Toast;
 
+import androidx.activity.EdgeToEdge;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import com.abrarshakhi.rtemcs.data.DeviceInfoDb;
+import com.abrarshakhi.rtemcs.model.DeviceInfo;
+import com.google.android.material.floatingactionbutton.FloatingActionButton;
 
-import com.tuya.smart.home.sdk.TuyaHomeSdk;
-import com.tuya.smart.sdk.api.ITuyaDevice;
-import com.tuya.smart.sdk.api.IResultCallback;
-import com.tuya.smart.sdk.bean.DeviceBean;
-import com.tuya.smart.sdk.api.ITuyaActivatorListener;
-import com.tuya.smart.sdk.TuyaSdk;
-import com.tuya.smart.common.TuyaUtil;
+import java.util.ArrayList;
+import java.util.List;
 
 
 public class MainActivity extends AppCompatActivity {
 
-    ListView lvListOfDeviceMain;
-    Button btnAddDeviceMain;
+    ListView lvListOfDevice;
+    FloatingActionButton btnAddDevice;
 
-    List<DeviceListAdapter.Device> deviceList = new ArrayList<>();
-    DeviceListAdapter deviceListAdapter;
-
-    boolean flag;
+    private List<DeviceInfo> deviceInfoList;
+    private DeviceListAdapter deviceListAdapter;
+    private DeviceInfoDb db;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        EdgeToEdge.enable(this);
         setContentView(R.layout.activity_main);
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main), (v, insets) -> {
             Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom);
             return insets;
         });
-        TuyaHomeSdk.setDebugMode(true);
 
-        btnAddDeviceMain = findViewById(R.id.btnAddDeviceMain);
+        btnAddDevice = findViewById(R.id.btnAddDeviceMain);
+        lvListOfDevice = findViewById(R.id.lvListOfDeviceMain);
 
-        String AccessId = "4ardymv3p77tcka877dj";
-        String AccessKey = "dc3edde2a86e44f98955f5764c43431a";
-        String apiEndpoint = "https://openapi.tuyaeu.com";
-        String deviceId = "bf92f59ca62e225506gyey";
+        db = new DeviceInfoDb(this);
+        deviceInfoList = new ArrayList<>();
+        deviceListAdapter = new DeviceListAdapter(this, deviceInfoList);
+        lvListOfDevice.setAdapter(deviceListAdapter);
 
-        TuyaHomeSdk.init(this, AccessId, AccessKey, new IResultCallback() {
-            @Override
-            public void onSuccess() {
-                Toast.makeText(MainActivity.this, "connection successfully", Toast.LENGTH_SHORT).show();
-            }
-
-            @Override
-            public void onError(String code, String error) {
-                Toast.makeText(
-                    MainActivity.this,
-                    String.format("connection unsuccessfully with code: %s. Error: %s", code, error),
-                    Toast.LENGTH_SHORT
-                ).show();
-            }
-        });
-
-        flag = true;
-        btnAddDeviceMain.setOnClickListener(v -> {
-            ITuyaDevice device = TuyaHomeSdk.newDeviceInstance(deviceId);
-            Map<String, Object> commands = new HashMap<>();
-            commands.put("switch", !flag); // or false
-            device.publishDps(TuyaUtil.dps2Json(commands), new IResultCallback() {
-                @Override
-                public void onSuccess() {
-                    flag = !flag;
-                    Toast.makeText(MainActivity.this, String.format("device is turned %s", (flag) ? "on" : "off"), Toast.LENGTH_SHORT).show();
-                }
-
-                @Override
-                public void onError(String code, String error) {
-                    Log.e("Tuya", "Control failed: " + error);
-                }
-            });
-
-        });
+        btnAddDevice.setOnClickListener(v -> startActivity(new Intent(this, NewDeviceActivity.class)));
     }
 
+    @Override
+    protected void onStart() {
+        super.onStart();
+        deviceInfoList.clear();
+        List<DeviceInfo> devices = db.getAllDevices();
+        for (int i = 0; i < devices.size(); i++) {
+            deviceInfoList.add(devices.get(i));
+            deviceListAdapter.notifyDataSetChanged();
+        }
+    }
 
 }

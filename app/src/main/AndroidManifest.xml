@@ -12,6 +12,12 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.RealTimeEnergyMonitoringAndControllingSystem">
         <activity
+            android:name=".DeviceDetailActivity"
+            android:exported="false" />
+        <activity
+            android:name=".NewDeviceActivity"
+            android:exported="false" />
+        <activity
             android:name=".MainActivity"
             android:exported="true"
             android:theme="@style/Theme.RealTimeEnergyMonitoringAndControllingSystem">

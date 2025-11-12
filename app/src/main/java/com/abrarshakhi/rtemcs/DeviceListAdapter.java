@@ -1,97 +1,66 @@
 package com.abrarshakhi.rtemcs;
 
 import android.content.Context;
+import android.content.Intent;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.BaseAdapter;
+import android.widget.ArrayAdapter;
+import android.widget.ImageView;
 import android.widget.TextView;
+
+import androidx.annotation.NonNull;
+
+import com.abrarshakhi.rtemcs.model.DeviceInfo;
 
 import java.util.List;
 
-public class DeviceListAdapter extends BaseAdapter {
+public class DeviceListAdapter extends ArrayAdapter<DeviceInfo> {
+    private final Context context;
+    private final List<DeviceInfo> deviceList;
+    private final LayoutInflater inflater;
 
-    private Context context;
-    private List<Device> deviceList;
-
-    // Constructor
-    public DeviceListAdapter(Context context, List<Device> deviceList) {
+    public DeviceListAdapter(Context context, List<DeviceInfo> deviceList) {
+        super(context, R.layout.device_list_item, deviceList);
         this.context = context;
         this.deviceList = deviceList;
+        this.inflater = LayoutInflater.from(context);
     }
 
+    @NonNull
     @Override
-    public int getCount() {
-        return deviceList.size();
-    }
-
-    @Override
-    public Object getItem(int position) {
-        return deviceList.get(position);
-    }
-
-    @Override
-    public long getItemId(int position) {
-        return position;
-    }
-
-    @Override
-    public View getView(int position, View convertView, ViewGroup parent) {
-        ViewHolder viewHolder;
+    public View getView(int position, View convertView, @NonNull ViewGroup parent) {
+        ViewHolder holder;
 
         if (convertView == null) {
-            LayoutInflater inflater = (LayoutInflater) context.getSystemService(Context.LAYOUT_INFLATER_SERVICE);
             convertView = inflater.inflate(R.layout.device_list_item, parent, false);
-
-            viewHolder = new ViewHolder();
-            viewHolder.deviceNameTextView = convertView.findViewById(R.id.tvDeviceNameListItem);
-            viewHolder.deviceInfoTextView = convertView.findViewById(R.id.tvDeviceInfoListItem);
-            viewHolder.deviceStatusTextView = convertView.findViewById(R.id.tvDeviceStatusListItem);
-
-            convertView.setTag(viewHolder);
+            holder = new ViewHolder();
+            holder.tvDeviceName = convertView.findViewById(R.id.tvDeviceNameListItem);
+            holder.tvDeviceInfo = convertView.findViewById(R.id.tvDeviceInfoListItem);
+            holder.tvDeviceStatus = convertView.findViewById(R.id.tvDeviceStatusListItem);
+            holder.ivStatusIcon = convertView.findViewById(R.id.ivStatusIcon); // optional — rename in XML if needed
+            convertView.setTag(holder);
         } else {
-            viewHolder = (ViewHolder) convertView.getTag();
+            holder = (ViewHolder) convertView.getTag();
         }
 
-        Device device = deviceList.get(position);
-
-        viewHolder.deviceNameTextView.setText(device.getDeviceName());
-        viewHolder.deviceInfoTextView.setText(device.getDeviceInfo());
-        viewHolder.deviceStatusTextView.setText(device.getDeviceStatus());
+        DeviceInfo device = deviceList.get(position);
+        holder.tvDeviceName.setText(device.getDeviceName());
+        holder.tvDeviceInfo.setText("ID: " + device.getDeviceId());
+        holder.ivStatusIcon.setImageResource(device.isRunning() ? R.drawable.ic_play : R.drawable.ic_pause);
+        holder.tvDeviceStatus.setText(device.isRunning() ? "Running" : "Stopped");
+        convertView.setOnClickListener(
+            v ->
+                context.startActivity(new Intent(context, DeviceDetailActivity.class).putExtra("ID", device.getId()))
+        );
 
         return convertView;
     }
 
-
-    // View holder pattern for better performance
-    private static class ViewHolder {
-        TextView deviceNameTextView;
-        TextView deviceInfoTextView;
-        TextView deviceStatusTextView;
-    }
-
-    // Device model class to store device data
-    public static class Device {
-        private final String deviceName;
-        private final String deviceInfo;
-        private final String deviceStatus;
-
-        public Device(String deviceName, String deviceInfo, String deviceStatus) {
-            this.deviceName = deviceName;
-            this.deviceInfo = deviceInfo;
-            this.deviceStatus = deviceStatus;
-        }
-
-        public String getDeviceName() {
-            return deviceName;
-        }
-
-        public String getDeviceInfo() {
-            return deviceInfo;
-        }
-
-        public String getDeviceStatus() {
-            return deviceStatus;
-        }
+    static class ViewHolder {
+        TextView tvDeviceName;
+        TextView tvDeviceInfo;
+        TextView tvDeviceStatus;
+        ImageView ivStatusIcon;
     }
 }

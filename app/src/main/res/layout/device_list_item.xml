@@ -7,6 +7,8 @@
     android:layout_margin="8dp"
     app:cardCornerRadius="8dp"
     app:cardElevation="4dp"
+    android:clickable="true"
+    android:focusable="true"
     tools:ignore="HardcodedText,UseCompoundDrawables"
     android:backgroundTint="@android:color/white">
 
@@ -63,9 +65,10 @@
 
             <!-- Optional: You can add a small icon next to status -->
             <ImageView
+                android:id="@+id/ivStatusIcon"
                 android:layout_width="20dp"
                 android:layout_height="20dp"
-                android:contentDescription="Running/Pauses Icon"
+                android:contentDescription="Running/Paused Icon"
                 android:src="@drawable/ic_pause"
                 android:layout_marginTop="4dp" />
         </LinearLayout>

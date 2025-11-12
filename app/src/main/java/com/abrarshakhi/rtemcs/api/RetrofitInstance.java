@@ -4,7 +4,7 @@ import retrofit2.Retrofit;
 import retrofit2.converter.gson.GsonConverterFactory;
 
 public class RetrofitInstance {
-    private static final String BASE_URL = "https://api.example.com/";
+    private static final String BASE_URL = "https://openapi.tuyaeu.com";
     private static Retrofit retrofit;
 
     public static synchronized Retrofit getRetrofitInstance() {
