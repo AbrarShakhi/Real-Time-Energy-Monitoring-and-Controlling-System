@@ -5,18 +5,25 @@ import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.Bundle;
+import android.util.Log;
 import android.widget.Button;
 import android.widget.Toast;
 
 import androidx.activity.EdgeToEdge;
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
+import com.abrarshakhi.rtemcs.api.RetrofitInstance;
+import com.abrarshakhi.rtemcs.api.TuyaApiService;
 import com.abrarshakhi.rtemcs.data.DeviceInfoDb;
 import com.abrarshakhi.rtemcs.model.DeviceInfo;
+import com.abrarshakhi.rtemcs.model.TuyaTokenResponse;
+
+import retrofit2.*;
 
 public class DeviceDetailActivity extends AppCompatActivity {
     DeviceInfoDb db;
@@ -33,6 +40,27 @@ public class DeviceDetailActivity extends AppCompatActivity {
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom);
             return insets;
         });
+
+        TuyaApiService apiService = RetrofitInstance.getRetrofitInstance().create(TuyaApiService.class);
+        Call<TuyaTokenResponse> call = apiService.getToken(1);
+        call.enqueue(new Callback<TuyaTokenResponse>() {
+            @Override
+            public void onResponse(@NonNull Call<TuyaTokenResponse> call, @NonNull Response<TuyaTokenResponse> response) {
+                if (response.isSuccessful() && response.body() != null) {
+                    TuyaTokenResponse tokenResponse = response.body();
+                    Log.d("RETROFIT RESPONSE", "Access Token: " + tokenResponse.getResult().getAccessToken());
+                    Log.d("RETROFIT RESPONSE", "Expire Time: " + tokenResponse.getResult().getExpireTime());
+                } else {
+                    Log.e("RETROFIT RESPONSE", "Request failed. Code: " + response.code());
+                }
+            }
+
+            @Override
+            public void onFailure(@NonNull Call<TuyaTokenResponse> call, @NonNull Throwable t) {
+                Log.e("RETROFIT RESPONSE", "Error: " + t.getMessage());
+            }
+        });
+
 
         db = new DeviceInfoDb(this);
 
