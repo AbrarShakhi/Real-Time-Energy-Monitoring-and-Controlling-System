@@ -1,34 +1,45 @@
 package com.abrarshakhi.rtemcs;
 
 import android.Manifest;
+import android.content.BroadcastReceiver;
+import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.Bundle;
-import android.util.Log;
 import android.widget.Button;
 import android.widget.Toast;
 
 import androidx.activity.EdgeToEdge;
-import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
-import com.abrarshakhi.rtemcs.api.RetrofitInstance;
-import com.abrarshakhi.rtemcs.api.TuyaApiService;
 import com.abrarshakhi.rtemcs.data.DeviceInfoDb;
 import com.abrarshakhi.rtemcs.model.DeviceInfo;
-import com.abrarshakhi.rtemcs.model.TuyaTokenResponse;
-
-import retrofit2.*;
+import com.google.android.material.materialswitch.MaterialSwitch;
 
 public class DeviceDetailActivity extends AppCompatActivity {
     DeviceInfoDb db;
     private Button btnBack, btnEdit;
     private DeviceInfo device;
+    private MaterialSwitch swMonitorDevice, swToggleDevice;
+
+    public static final String ACTION_UPDATE_SWITCH = "com.abrarshakhi.rtemcs.UPDATE_SWITCH";
+    public static final String EXTRA_COUNT = "COUNT";
+    private final BroadcastReceiver switchReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            if (intent != null && DeviceDetailActivity.ACTION_UPDATE_SWITCH.equals(intent.getAction())) {
+                int count = intent.getIntExtra(DeviceDetailActivity.EXTRA_COUNT, 0);
+                System.out.println(count);
+                swToggleDevice.setChecked(count % 2 == 1);
+            }
+        }
+    };
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -41,31 +52,10 @@ public class DeviceDetailActivity extends AppCompatActivity {
             return insets;
         });
 
-        TuyaApiService apiService = RetrofitInstance.getRetrofitInstance().create(TuyaApiService.class);
-        Call<TuyaTokenResponse> call = apiService.getToken(1);
-        call.enqueue(new Callback<TuyaTokenResponse>() {
-            @Override
-            public void onResponse(@NonNull Call<TuyaTokenResponse> call, @NonNull Response<TuyaTokenResponse> response) {
-                if (response.isSuccessful() && response.body() != null) {
-                    TuyaTokenResponse tokenResponse = response.body();
-                    Log.d("RETROFIT RESPONSE", "Access Token: " + tokenResponse.getResult().getAccessToken());
-                    Log.d("RETROFIT RESPONSE", "Expire Time: " + tokenResponse.getResult().getExpireTime());
-                } else {
-                    Log.e("RETROFIT RESPONSE", "Request failed. Code: " + response.code());
-                }
-            }
-
-            @Override
-            public void onFailure(@NonNull Call<TuyaTokenResponse> call, @NonNull Throwable t) {
-                Log.e("RETROFIT RESPONSE", "Error: " + t.getMessage());
-            }
-        });
-
-
         db = new DeviceInfoDb(this);
-
         initViews();
         initButtons();
+        initSwitches();
     }
 
     @Override
@@ -86,11 +76,36 @@ public class DeviceDetailActivity extends AppCompatActivity {
             finish();
         }
 
+        IntentFilter filter = new IntentFilter(ACTION_UPDATE_SWITCH);
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(switchReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
+        } else {
+            registerReceiver(switchReceiver, filter);
+        }
+
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+        unregisterReceiver(switchReceiver);
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+
+        if (device != null) {
+            swMonitorDevice.setChecked(device.isRunning());
+        }
     }
 
     private void initViews() {
         btnBack = findViewById(R.id.btnBackDetail);
         btnEdit = findViewById(R.id.btnEditDetail);
+        swMonitorDevice = findViewById(R.id.swMonitorDeviceDetail);
+        swToggleDevice = findViewById(R.id.swToggleDeviceDetail);
     }
 
     private void initButtons() {
@@ -98,6 +113,20 @@ public class DeviceDetailActivity extends AppCompatActivity {
         btnEdit.setOnClickListener(v ->
             startActivity(new Intent(DeviceDetailActivity.this, DeviceInfoActivity.class).putExtra("ID", device.getId()))
         );
+    }
+
+    private void initSwitches() {
+        swMonitorDevice.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            Intent servIt = new Intent(DeviceDetailActivity.this, DeviceService.class);
+            if (isChecked && device != null) {
+                btnEdit.setEnabled(false);
+                servIt.putExtra("ID", device.getId());
+                startForegroundService(servIt);
+            } else {
+                stopService(servIt);
+                btnEdit.setEnabled(true);
+            }
+        });
     }
 
     private void checkPermission() {

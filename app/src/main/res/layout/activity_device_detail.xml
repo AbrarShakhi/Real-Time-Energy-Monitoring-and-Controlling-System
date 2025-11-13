@@ -8,22 +8,54 @@
     tools:context=".DeviceDetailActivity"
     tools:ignore="HardcodedText">
 
-        <TextView
-            android:id="@+id/tvAppBarMain"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:background="@color/black"
-            android:gravity="start"
-            android:padding="7sp"
-            android:paddingStart="14sp"
-            android:text="Device Details"
-            android:textColor="@color/white"
-            android:textSize="25sp"
-            android:textStyle="bold"
-            app:layout_constraintTop_toTopOf="parent"/>
+    <TextView
+        android:id="@+id/tvAppBarMain"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@color/black"
+        android:gravity="start"
+        android:padding="7sp"
+        android:paddingStart="14sp"
+        android:paddingEnd="14sp"
+        android:text="Device Details"
+        android:textColor="@color/white"
+        android:textSize="25sp"
+        android:textStyle="bold"
+        app:layout_constraintTop_toTopOf="parent" />
 
     <LinearLayout
-        android:id="@+id/linearLayout"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        app:layout_constraintBottom_toTopOf="@+id/llBottomButtonDetails">
+
+        <com.google.android.material.materialswitch.MaterialSwitch
+            android:id="@+id/swMonitorDeviceDetail"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Monitor Device"
+            android:layout_marginStart="8dp"
+            android:layout_marginEnd="8dp"
+            android:checked="false"
+            android:textSize="16sp"
+            android:paddingVertical="8dp" />
+
+        <com.google.android.material.materialswitch.MaterialSwitch
+            android:id="@+id/swToggleDeviceDetail"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Toggle Device"
+            android:layout_marginStart="8dp"
+            android:layout_marginEnd="8dp"
+            android:checked="false"
+            android:textSize="16sp"
+            android:paddingVertical="8dp" />
+
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/llBottomButtonDetails"
+        style="?android:attr/buttonBarStyle"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
@@ -31,6 +63,7 @@
 
         <Button
             android:id="@+id/btnBackDetail"
+            style="?android:attr/buttonBarButtonStyle"
             android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_marginStart="8dp"
@@ -42,6 +75,7 @@
 
         <Button
             android:id="@+id/btnEditDetail"
+            style="?android:attr/buttonBarButtonStyle"
             android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_marginStart="4dp"
