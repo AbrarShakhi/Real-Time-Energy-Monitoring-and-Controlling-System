@@ -1,12 +1,16 @@
 package com.abrarshakhi.rtemcs;
 
+import android.Manifest;
 import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.os.Build;
 import android.os.Bundle;
 import android.widget.Button;
 import android.widget.Toast;
 
 import androidx.activity.EdgeToEdge;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.content.ContextCompat;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
@@ -39,6 +43,9 @@ public class DeviceDetailActivity extends AppCompatActivity {
     @Override
     protected void onStart() {
         super.onStart();
+
+        checkPermission();
+
         Intent it = getIntent();
         if (it == null || it.getIntExtra("ID", -1) == -1) {
             Toast.makeText(this, "Activity started without specifying ID", Toast.LENGTH_LONG).show();
@@ -63,6 +70,16 @@ public class DeviceDetailActivity extends AppCompatActivity {
         btnEdit.setOnClickListener(v ->
             startActivity(new Intent(DeviceDetailActivity.this, DeviceInfoActivity.class).putExtra("ID", device.getId()))
         );
+    }
+
+    private void checkPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
+                != PackageManager.PERMISSION_GRANTED) {
+                Toast.makeText(this, "Please allow notification permission first.", Toast.LENGTH_SHORT).show();
+                finish();
+            }
+        }
     }
 
 }

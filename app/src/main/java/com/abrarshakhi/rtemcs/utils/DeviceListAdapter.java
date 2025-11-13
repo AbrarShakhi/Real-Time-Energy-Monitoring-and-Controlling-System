@@ -1,4 +1,4 @@
-package com.abrarshakhi.rtemcs;
+package com.abrarshakhi.rtemcs.utils;
 
 import android.content.Context;
 import android.content.Intent;
@@ -11,6 +11,8 @@ import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 
+import com.abrarshakhi.rtemcs.DeviceDetailActivity;
+import com.abrarshakhi.rtemcs.R;
 import com.abrarshakhi.rtemcs.model.DeviceInfo;
 
 import java.util.List;
@@ -46,7 +48,7 @@ public class DeviceListAdapter extends ArrayAdapter<DeviceInfo> {
 
         DeviceInfo device = deviceList.get(position);
         holder.tvDeviceName.setText(device.getDeviceName());
-        holder.tvDeviceInfo.setText("ID: " + device.getDeviceId());
+        holder.tvDeviceInfo.setText(String.format("ID: %s", device.getDeviceId()));
         holder.ivStatusIcon.setImageResource(device.isRunning() ? R.drawable.ic_play : R.drawable.ic_pause);
         holder.tvDeviceStatus.setText(device.isRunning() ? "Running" : "Stopped");
         convertView.setOnClickListener(

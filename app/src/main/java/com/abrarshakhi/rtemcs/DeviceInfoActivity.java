@@ -16,7 +16,7 @@ import com.abrarshakhi.rtemcs.data.DeviceInfoDb;
 import com.abrarshakhi.rtemcs.model.DeviceInfo;
 
 public class DeviceInfoActivity extends AppCompatActivity {
-    DeviceInfoDb deviceInfoDb;
+    DeviceInfoDb db;
     private EditText etDeviceName, etDeviceId, etAccessId, etAccessSecret;
     private Button btnCancel, btnSave;
     boolean isNew;
@@ -32,7 +32,7 @@ public class DeviceInfoActivity extends AppCompatActivity {
             return insets;
         });
 
-        deviceInfoDb = new DeviceInfoDb(this);
+        db = new DeviceInfoDb(this);
         Intent it = getIntent();
         isNew = it == null || it.getIntExtra("ID", -1) == -1;
         initViews();
@@ -47,7 +47,7 @@ public class DeviceInfoActivity extends AppCompatActivity {
             return;
         }
 
-        DeviceInfo device = deviceInfoDb.findById(getIntent().getIntExtra("ID", -1));
+        DeviceInfo device = db.findById(getIntent().getIntExtra("ID", -1));
         if (device == null) {
             Toast.makeText(this, "Unable to find device info in the database.", Toast.LENGTH_LONG).show();
             finish();
@@ -92,7 +92,7 @@ public class DeviceInfoActivity extends AppCompatActivity {
     }
 
     private void editDeviceInDb(int id, String deviceName, String deviceId, String accessId, String accessSecret) {
-        DeviceInfo device = deviceInfoDb.findById(id);
+        DeviceInfo device = db.findById(id);
         if (device == null) {
             Toast.makeText(DeviceInfoActivity.this, "Could not found the device in the database.", Toast.LENGTH_SHORT).show();
             return;
@@ -103,7 +103,7 @@ public class DeviceInfoActivity extends AppCompatActivity {
         device.setAccessId(accessId);
         device.setAccessSecret(accessSecret);
 
-        if (deviceInfoDb.updateDevice(device) != 0) {
+        if (db.updateDevice(device) != 0) {
             Toast.makeText(this, "Device saved successfully", Toast.LENGTH_SHORT).show();
             finish();
         } else {
@@ -113,7 +113,7 @@ public class DeviceInfoActivity extends AppCompatActivity {
 
 
     private void insertDeviceToDb(String deviceName, String deviceId, String accessId, String accessSecret) {
-        if (deviceInfoDb.insertDevice(
+        if (db.insertDevice(
             new DeviceInfo.Builder()
                 .id(1)
                 .deviceName(deviceName)
