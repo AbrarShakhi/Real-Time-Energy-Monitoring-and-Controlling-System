@@ -21,9 +21,11 @@ public class DeviceInfoDb extends SQLiteOpenHelper {
     public static final String COL_DEVICE_ID = "device_id";
     public static final String COL_ACCESS_ID = "access_id";
     public static final String COL_ACCESS_SECRET = "access_secret";
+    public static final String COL_RUNNING = "running";
+    public static final String COL_TURN_ON = "turn_on";
 
     private static final String DB_NAME = "RTEMCS.DB";
-    private static final int DB_VERSION = 1;
+    private static final int DB_VERSION = 2; // Incremented DB version
 
     public DeviceInfoDb(Context context) {
         super(context, DB_NAME, null, DB_VERSION);
@@ -36,7 +38,9 @@ public class DeviceInfoDb extends SQLiteOpenHelper {
             COL_DEVICE_NAME + " TEXT NOT NULL, " +
             COL_DEVICE_ID + " TEXT NOT NULL UNIQUE, " +
             COL_ACCESS_ID + " TEXT NOT NULL, " +
-            COL_ACCESS_SECRET + " TEXT NOT NULL" +
+            COL_ACCESS_SECRET + " TEXT NOT NULL, " +
+            COL_RUNNING + " INTEGER DEFAULT 0, " + // 0 = false
+            COL_TURN_ON + " INTEGER DEFAULT 0" +  // 0 = false
             ");";
         db.execSQL(createTableSQL);
     }
@@ -54,6 +58,8 @@ public class DeviceInfoDb extends SQLiteOpenHelper {
         values.put(COL_DEVICE_ID, deviceInfo.getDeviceId());
         values.put(COL_ACCESS_ID, deviceInfo.getAccessId());
         values.put(COL_ACCESS_SECRET, deviceInfo.getAccessSecret());
+        values.put(COL_RUNNING, deviceInfo.isRunning() ? 1 : 0);
+        values.put(COL_TURN_ON, deviceInfo.isTurnOn() ? 1 : 0);
         long result = db.insert(TABLE_NAME, null, values);
         db.close();
         return result != -1;
@@ -71,6 +77,8 @@ public class DeviceInfoDb extends SQLiteOpenHelper {
                 String deviceId = cursor.getString(cursor.getColumnIndexOrThrow(COL_DEVICE_ID));
                 String accessId = cursor.getString(cursor.getColumnIndexOrThrow(COL_ACCESS_ID));
                 String accessSecret = cursor.getString(cursor.getColumnIndexOrThrow(COL_ACCESS_SECRET));
+                boolean running = cursor.getInt(cursor.getColumnIndexOrThrow(COL_RUNNING)) != 0;
+                boolean turnOn = cursor.getInt(cursor.getColumnIndexOrThrow(COL_TURN_ON)) != 0;
 
                 DeviceInfo device = new DeviceInfo.Builder()
                     .id(id)
@@ -79,6 +87,9 @@ public class DeviceInfoDb extends SQLiteOpenHelper {
                     .accessId(accessId)
                     .accessSecret(accessSecret)
                     .build();
+                device.setRunning(running);
+                device.setTurnOn(turnOn);
+
                 devices.add(device);
             } while (cursor.moveToNext());
         }
@@ -88,13 +99,6 @@ public class DeviceInfoDb extends SQLiteOpenHelper {
         return devices;
     }
 
-    public int deleteDevice(String deviceId) {
-        SQLiteDatabase db = this.getWritableDatabase();
-        int rowsDeleted = db.delete(TABLE_NAME, COL_DEVICE_ID + "=?", new String[]{deviceId});
-        db.close();
-        return rowsDeleted;
-    }
-
     public int updateDevice(DeviceInfo deviceInfo) {
         SQLiteDatabase db = this.getWritableDatabase();
         ContentValues values = new ContentValues();
@@ -102,6 +106,9 @@ public class DeviceInfoDb extends SQLiteOpenHelper {
         values.put(COL_DEVICE_ID, deviceInfo.getDeviceId());
         values.put(COL_ACCESS_ID, deviceInfo.getAccessId());
         values.put(COL_ACCESS_SECRET, deviceInfo.getAccessSecret());
+        values.put(COL_RUNNING, deviceInfo.isRunning() ? 1 : 0);
+        values.put(COL_TURN_ON, deviceInfo.isTurnOn() ? 1 : 0);
+
         int rowsUpdated = db.update(TABLE_NAME, values, COL_ID + "=?", new String[]{String.valueOf(deviceInfo.getId())});
         db.close();
         return rowsUpdated;
@@ -111,7 +118,7 @@ public class DeviceInfoDb extends SQLiteOpenHelper {
         SQLiteDatabase db = this.getReadableDatabase();
         Cursor cursor = db.query(
             TABLE_NAME,
-            null, // all columns
+            null,
             COL_ID + "=?",
             new String[]{String.valueOf(id)},
             null, null, null
@@ -123,6 +130,8 @@ public class DeviceInfoDb extends SQLiteOpenHelper {
             String deviceId = cursor.getString(cursor.getColumnIndexOrThrow(COL_DEVICE_ID));
             String accessId = cursor.getString(cursor.getColumnIndexOrThrow(COL_ACCESS_ID));
             String accessSecret = cursor.getString(cursor.getColumnIndexOrThrow(COL_ACCESS_SECRET));
+            boolean running = cursor.getInt(cursor.getColumnIndexOrThrow(COL_RUNNING)) != 0;
+            boolean turnOn = cursor.getInt(cursor.getColumnIndexOrThrow(COL_TURN_ON)) != 0;
 
             device = new DeviceInfo.Builder()
                 .id(id)
@@ -131,6 +140,8 @@ public class DeviceInfoDb extends SQLiteOpenHelper {
                 .accessId(accessId)
                 .accessSecret(accessSecret)
                 .build();
+            device.setRunning(running);
+            device.setTurnOn(turnOn);
         }
 
         cursor.close();
@@ -142,7 +153,7 @@ public class DeviceInfoDb extends SQLiteOpenHelper {
         SQLiteDatabase db = this.getReadableDatabase();
         Cursor cursor = db.query(
             TABLE_NAME,
-            null, // all columns
+            null,
             COL_DEVICE_ID + "=?",
             new String[]{deviceId},
             null, null, null
@@ -154,6 +165,8 @@ public class DeviceInfoDb extends SQLiteOpenHelper {
             String deviceName = cursor.getString(cursor.getColumnIndexOrThrow(COL_DEVICE_NAME));
             String accessId = cursor.getString(cursor.getColumnIndexOrThrow(COL_ACCESS_ID));
             String accessSecret = cursor.getString(cursor.getColumnIndexOrThrow(COL_ACCESS_SECRET));
+            boolean running = cursor.getInt(cursor.getColumnIndexOrThrow(COL_RUNNING)) != 0;
+            boolean turnOn = cursor.getInt(cursor.getColumnIndexOrThrow(COL_TURN_ON)) != 0;
 
             device = new DeviceInfo.Builder()
                 .id(id)
@@ -162,6 +175,8 @@ public class DeviceInfoDb extends SQLiteOpenHelper {
                 .accessId(accessId)
                 .accessSecret(accessSecret)
                 .build();
+            device.setRunning(running);
+            device.setTurnOn(turnOn);
         }
 
         cursor.close();

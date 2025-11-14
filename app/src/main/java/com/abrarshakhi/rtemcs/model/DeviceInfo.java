@@ -1,12 +1,14 @@
 package com.abrarshakhi.rtemcs.model;
 
 public class DeviceInfo {
+    public static final String ID = "ID";
     private int id;
     private String deviceName;
     private String deviceId;
     private String accessId;
     private String accessSecret;
-    private boolean isRunning;
+    private boolean running;
+    private boolean turnOn;
 
     // === Constructors ===
     public DeviceInfo(int id, String deviceName, String deviceId, String accessId, String accessSecret) {
@@ -19,15 +21,25 @@ public class DeviceInfo {
         this.deviceId = deviceId;
         this.accessId = accessId;
         this.accessSecret = accessSecret;
+        running = false;
+        turnOn = false;
     }
 
     // === Getters & Setters ===
     public boolean isRunning() {
-        return isRunning;
+        return running;
     }
 
     public void setRunning(boolean running) {
-        isRunning = running;
+        this.running = running;
+    }
+
+    public boolean isTurnOn() {
+        return turnOn;
+    }
+
+    public void setTurnOn(boolean turnOn) {
+        this.turnOn = turnOn;
     }
 
     public String getAccessSecret() {
@@ -77,9 +89,6 @@ public class DeviceInfo {
         private String deviceId;
         private String accessId;
         private String accessSecret;
-        private boolean isRunning;
-        public Builder() {
-        }
 
         public int getId() {
             return id;
@@ -110,15 +119,9 @@ public class DeviceInfo {
             return this;
         }
 
-        public Builder isRunning(boolean isRunning) {
-            this.isRunning = isRunning;
-            return this;
-        }
-
         public DeviceInfo build() {
             DeviceInfo deviceInfo = new DeviceInfo(deviceName, deviceId, accessId, accessSecret);
             deviceInfo.setId(id);
-            deviceInfo.setRunning(isRunning);
             return deviceInfo;
         }
     }

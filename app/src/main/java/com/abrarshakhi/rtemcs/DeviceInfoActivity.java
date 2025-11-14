@@ -34,7 +34,7 @@ public class DeviceInfoActivity extends AppCompatActivity {
 
         db = new DeviceInfoDb(this);
         Intent it = getIntent();
-        isNew = it == null || it.getIntExtra("ID", -1) == -1;
+        isNew = it == null || it.getIntExtra(DeviceInfo.ID, -1) == -1;
         initViews();
         initButtons();
     }
@@ -47,7 +47,7 @@ public class DeviceInfoActivity extends AppCompatActivity {
             return;
         }
 
-        DeviceInfo device = db.findById(getIntent().getIntExtra("ID", -1));
+        DeviceInfo device = db.findById(getIntent().getIntExtra(DeviceInfo.ID, -1));
         if (device == null) {
             Toast.makeText(this, "Unable to find device info in the database.", Toast.LENGTH_LONG).show();
             finish();
@@ -86,7 +86,7 @@ public class DeviceInfoActivity extends AppCompatActivity {
             if (isNew) {
                 insertDeviceToDb(deviceName, deviceId, accessId, accessSecret);
             } else {
-                editDeviceInDb(getIntent().getIntExtra("ID", -1), deviceName, deviceId, accessId, accessSecret);
+                editDeviceInDb(getIntent().getIntExtra(DeviceInfo.ID, -1), deviceName, deviceId, accessId, accessSecret);
             }
         });
     }
@@ -120,7 +120,6 @@ public class DeviceInfoActivity extends AppCompatActivity {
                 .deviceId(deviceId)
                 .accessId(accessId)
                 .accessSecret(accessSecret)
-                .isRunning(false)
                 .build()
         )) {
             Toast.makeText(this, "Device saved successfully", Toast.LENGTH_SHORT).show();

@@ -1,6 +1,7 @@
 package com.abrarshakhi.rtemcs;
 
 import android.Manifest;
+import android.annotation.SuppressLint;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -23,20 +24,28 @@ import com.abrarshakhi.rtemcs.model.DeviceInfo;
 import com.google.android.material.materialswitch.MaterialSwitch;
 
 public class DeviceDetailActivity extends AppCompatActivity {
+    public static final String ACTION_UPDATE_SWITCH = "com.abrarshakhi.rtemcs.UPDATE_SWITCH";
     DeviceInfoDb db;
     private Button btnBack, btnEdit;
     private DeviceInfo device;
     private MaterialSwitch swMonitorDevice, swToggleDevice;
-
-    public static final String ACTION_UPDATE_SWITCH = "com.abrarshakhi.rtemcs.UPDATE_SWITCH";
-    public static final String EXTRA_COUNT = "COUNT";
     private final BroadcastReceiver switchReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
             if (intent != null && DeviceDetailActivity.ACTION_UPDATE_SWITCH.equals(intent.getAction())) {
-                int count = intent.getIntExtra(DeviceDetailActivity.EXTRA_COUNT, 0);
-                System.out.println(count);
-                swToggleDevice.setChecked(count % 2 == 1);
+                int id = intent.getIntExtra(DeviceInfo.ID, -1);
+                DeviceInfo d = db.findById(id);
+                if (d == null)
+                    return;
+                boolean isRunning = d.isRunning();
+                boolean isTurnOn = d.isTurnOn();
+                if (swMonitorDevice.isEnabled() != isRunning) {
+                    swMonitorDevice.setChecked(isRunning);
+                }
+                if (swToggleDevice.isEnabled() != isTurnOn) {
+                    swToggleDevice.setChecked(isTurnOn);
+                }
+
             }
         }
     };
@@ -63,27 +72,33 @@ public class DeviceDetailActivity extends AppCompatActivity {
         super.onStart();
 
         checkPermission();
+        if (findDevice()) return;
+        registerBroadcast();
+    }
 
-        Intent it = getIntent();
-        if (it == null || it.getIntExtra("ID", -1) == -1) {
-            Toast.makeText(this, "Activity started without specifying ID", Toast.LENGTH_LONG).show();
-            finish();
-            return;
-        }
-        device = db.findById(it.getIntExtra("ID", -1));
-        if (device == null) {
-            Toast.makeText(this, "Unable to find device info in the database.", Toast.LENGTH_LONG).show();
-            finish();
-        }
-
+    @SuppressLint("UnspecifiedRegisterReceiverFlag")
+    private void registerBroadcast() {
         IntentFilter filter = new IntentFilter(ACTION_UPDATE_SWITCH);
-
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             registerReceiver(switchReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
         } else {
             registerReceiver(switchReceiver, filter);
         }
+    }
 
+    private boolean findDevice() {
+        Intent it = getIntent();
+        if (it == null || it.getIntExtra(DeviceInfo.ID, -1) == -1) {
+            Toast.makeText(this, "Activity started without specifying ID", Toast.LENGTH_LONG).show();
+            finish();
+            return true;
+        }
+        device = db.findById(it.getIntExtra(DeviceInfo.ID, -1));
+        if (device == null) {
+            Toast.makeText(this, "Unable to find device info in the database.", Toast.LENGTH_LONG).show();
+            finish();
+        }
+        return false;
     }
 
     @Override
@@ -95,10 +110,13 @@ public class DeviceDetailActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
-
         if (device != null) {
+            device = db.findById(device.getId());
             swMonitorDevice.setChecked(device.isRunning());
+            swToggleDevice.setChecked(device.isTurnOn());
         }
+        btnEdit.setEnabled(!swMonitorDevice.isChecked());
+        swToggleDevice.setEnabled(swMonitorDevice.isChecked());
     }
 
     private void initViews() {
@@ -111,21 +129,32 @@ public class DeviceDetailActivity extends AppCompatActivity {
     private void initButtons() {
         btnBack.setOnClickListener(v -> finish());
         btnEdit.setOnClickListener(v ->
-            startActivity(new Intent(DeviceDetailActivity.this, DeviceInfoActivity.class).putExtra("ID", device.getId()))
+            startActivity(new Intent(DeviceDetailActivity.this, DeviceInfoActivity.class).putExtra(DeviceInfo.ID, device.getId()))
         );
     }
 
     private void initSwitches() {
         swMonitorDevice.setOnCheckedChangeListener((buttonView, isChecked) -> {
             Intent servIt = new Intent(DeviceDetailActivity.this, DeviceService.class);
-            if (isChecked && device != null) {
-                btnEdit.setEnabled(false);
-                servIt.putExtra("ID", device.getId());
-                startForegroundService(servIt);
-            } else {
-                stopService(servIt);
-                btnEdit.setEnabled(true);
-            }
+            if (device == null) return;
+            servIt.putExtra(DeviceInfo.ID, device.getId());
+            btnEdit.setEnabled(!isChecked);
+            swToggleDevice.setEnabled(isChecked);
+            servIt.putExtra(DeviceService.STATE,
+                (isChecked)
+                    ? DeviceService.SERVICE_STATE.START_MONITORING.ordinal()
+                    : DeviceService.SERVICE_STATE.STOP_MONITORING.ordinal());
+            startForegroundService(servIt);
+        });
+        swToggleDevice.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            Intent servIt = new Intent(DeviceDetailActivity.this, DeviceService.class);
+            if (device == null) return;
+            servIt.putExtra(DeviceInfo.ID, device.getId());
+            servIt.putExtra(DeviceService.STATE,
+                (isChecked)
+                    ? DeviceService.SERVICE_STATE.TURN_ON.ordinal()
+                    : DeviceService.SERVICE_STATE.TURN_OFF.ordinal());
+            startForegroundService(servIt);
         });
     }
 
