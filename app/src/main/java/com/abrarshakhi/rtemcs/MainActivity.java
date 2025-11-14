@@ -61,8 +61,8 @@ public class MainActivity extends AppCompatActivity {
     }
 
     @Override
-    protected void onStart() {
-        super.onStart();
+    protected void onResume() {
+        super.onResume();
         deviceInfoList.clear();
         List<DeviceInfo> devices = db.getAllDevices();
         for (int i = 0; i < devices.size(); i++) {

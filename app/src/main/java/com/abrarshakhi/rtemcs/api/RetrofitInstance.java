@@ -10,9 +10,9 @@ public class RetrofitInstance {
     public static synchronized Retrofit getRetrofitInstance() {
         if (retrofit == null) {
             retrofit = new Retrofit.Builder()
-                    .baseUrl(BASE_URL)
-                    .addConverterFactory(GsonConverterFactory.create())
-                    .build();
+                .baseUrl(BASE_URL)
+                .addConverterFactory(GsonConverterFactory.create())
+                .build();
         }
         return retrofit;
     }
