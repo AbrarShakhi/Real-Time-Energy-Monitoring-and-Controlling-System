@@ -23,8 +23,13 @@ import com.abrarshakhi.rtemcs.data.DeviceInfoDb;
 import com.abrarshakhi.rtemcs.model.DeviceInfo;
 import com.google.android.material.materialswitch.MaterialSwitch;
 
+import java.util.Locale;
+
 public class DeviceDetailActivity extends AppCompatActivity {
     public static final String ACTION_UPDATE_SWITCH = "com.abrarshakhi.rtemcs.UPDATE_SWITCH";
+    public static final String POWER = "P";
+    public static final String CURRENT = "C";
+    public static final String VOLTAGE = "V";
 
     DeviceInfoDb db;
     private Button btnBack, btnEdit;
@@ -49,7 +54,12 @@ public class DeviceDetailActivity extends AppCompatActivity {
             if (swToggleDevice.isEnabled() != isTurnOn) {
                 swToggleDevice.setChecked(isTurnOn);
             }
+            double power, voltage, current;
+            power = intent.getDoubleExtra(POWER, 0);
+            voltage = intent.getDoubleExtra(VOLTAGE, 0);
+            current = intent.getDoubleExtra(CURRENT, 0);
 
+            Toast.makeText(context, String.format(Locale.US,"%.2f  %.2f  %.2f", power, voltage, current), Toast.LENGTH_SHORT).show();
         }
     };
 
@@ -150,6 +160,9 @@ public class DeviceDetailActivity extends AppCompatActivity {
             startForegroundService(servIt);
         });
         swToggleDevice.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            if (!device.isRunning()) {
+                return;
+            }
             Intent servIt = new Intent(DeviceDetailActivity.this, DeviceService.class);
             if (device == null) return;
             servIt.putExtra(DeviceInfo.ID, device.getId());

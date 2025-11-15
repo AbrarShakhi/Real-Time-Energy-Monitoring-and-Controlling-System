@@ -31,4 +31,13 @@ public class TuyaTokenResponse {
     public String getTid() {
         return tid;
     }
+
+    public void updateExpiredTime() {
+        if (result == null) return;
+
+        long expireSeconds = result.getExpireTime();
+        long t = this.timestamp;
+
+        result.setExpireTime(t + expireSeconds * 1000L);
+    }
 }

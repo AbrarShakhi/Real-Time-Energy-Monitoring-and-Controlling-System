@@ -8,6 +8,7 @@ import android.content.Intent;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
+import android.util.Log;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
@@ -18,9 +19,15 @@ import com.abrarshakhi.rtemcs.data.DeviceInfoDb;
 import com.abrarshakhi.rtemcs.model.DeviceInfo;
 import com.abrarshakhi.rtemcs.model.TuyaCommandResponse;
 import com.abrarshakhi.rtemcs.model.TuyaDeviceToken;
+import com.abrarshakhi.rtemcs.model.TuyaShadowPropertiesResponse;
 import com.abrarshakhi.rtemcs.model.TuyaTokenInfo;
 import com.abrarshakhi.rtemcs.model.TuyaTokenResponse;
 
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.OutputStreamWriter;
+import java.io.PrintWriter;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -62,28 +69,22 @@ public class DeviceService extends Service {
                 public void onSuccess(TuyaDeviceToken token) {
                     deviceTokens.put(id, token);
                     db.updateDevice(currDevice);
-                    startMonitoring(currDevice);
-                    stopMonitoringAndSelfKill();
+                    startMonitoring(token);
+                    ifEmptyThenSelfKill();
                 }
 
                 @Override
                 public void onError(Throwable t) {
                     Toast.makeText(DeviceService.this, "Network Error", Toast.LENGTH_SHORT).show();
-                    stopMonitoringAndSelfKill();
+                    ifEmptyThenSelfKill();
                 }
             });
         } else if (state == SERVICE_STATE.STOP_MONITORING) {
-            Runnable task = monitorTasks.remove(id);
-            if (task != null) {
-                handler.removeCallbacks(task);
-            }
-
-            currDevice.setRunning(false);
-            db.updateDevice(currDevice);
-            deviceTokens.remove(id);
-
-            stopMonitoringAndSelfKill();
+            stopMonitoring(id, currDevice);
         } else {
+            if (deviceTokens == null || deviceTokens.isEmpty() || monitorTasks.isEmpty()) {
+                return;
+            }
             TuyaDeviceToken deviceToken = deviceTokens.get(id);
             if (deviceToken == null || deviceToken.getToken() == null) {
                 return;
@@ -96,7 +97,20 @@ public class DeviceService extends Service {
         }
     }
 
-    private void stopMonitoringAndSelfKill() {
+    private void stopMonitoring(int id, DeviceInfo currDevice) {
+        Runnable task = monitorTasks.remove(id);
+        if (task != null) {
+            handler.removeCallbacks(task);
+        }
+
+        currDevice.setRunning(false);
+        db.updateDevice(currDevice);
+        deviceTokens.remove(id);
+
+        ifEmptyThenSelfKill();
+    }
+
+    private void ifEmptyThenSelfKill() {
         if (deviceTokens.isEmpty() || monitorTasks.isEmpty()) {
             stopSelf();
         }
@@ -105,11 +119,12 @@ public class DeviceService extends Service {
     private void toggleDevice(@NonNull TuyaDeviceToken currDevice, boolean power) {
         TuyaOpenApi api = TuyaOpenApi.getInstance();
 
-        boolean status = api.refreshTokenIfNeeded(currDevice.getDevice(), currDevice.getToken(), new Callback<>() {
+        boolean isExpectedToChange = api.refreshTokenIfNeeded(currDevice.getDevice(), currDevice.getToken(), new Callback<>() {
             @Override
             public void onResponse(@NonNull Call<TuyaTokenResponse> call, @NonNull Response<TuyaTokenResponse> response) {
                 TuyaTokenResponse body = response.body();
                 if (response.isSuccessful() && body != null && body.isSuccess() && body.getResult() != null) {
+                    body.updateExpiredTime();
                     TuyaTokenInfo tokenInfo = body.getResult();
                     currDevice.copyToken(tokenInfo);
                     toggleDevice(currDevice, power);
@@ -121,11 +136,13 @@ public class DeviceService extends Service {
 
             @Override
             public void onFailure(@NonNull Call<TuyaTokenResponse> call, @NonNull Throwable t) {
+                stopMonitoring(currDevice.getDevice().getId(), currDevice.getDevice());
+                broadcastId(currDevice.getDevice().getId());
                 Toast.makeText(DeviceService.this, "Network Error", Toast.LENGTH_SHORT).show();
             }
         });
 
-        if (!status) {
+        if (isExpectedToChange) {
             return;
         }
         api.togglePower(currDevice.getDevice(), currDevice.getToken(), power, new Callback<>() {
@@ -147,48 +164,169 @@ public class DeviceService extends Service {
             @Override
             public void onFailure(@NonNull Call<TuyaCommandResponse> call, @NonNull Throwable t) {
                 broadcastId(currDevice.getDevice().getId());
+                stopMonitoring(currDevice.getDevice().getId(), currDevice.getDevice());
                 Toast.makeText(DeviceService.this, "Network Error", Toast.LENGTH_SHORT).show();
             }
         });
     }
 
-    private void startMonitoring(@NonNull DeviceInfo currDevice) {
-        int id = currDevice.getId();
+    private void startMonitoring(@NonNull TuyaDeviceToken currDeviceToken) {
+        TuyaOpenApi api = TuyaOpenApi.getInstance();
+        int id = currDeviceToken.getDevice().getId();
         if (monitorTasks.containsKey(id)) {
             return;
         }
-        currDevice.setRunning(true);
-        db.updateDevice(currDevice);
+        currDeviceToken.getDevice().setRunning(true);
+        db.updateDevice(currDeviceToken.getDevice());
 
         Runnable task = new Runnable() {
             @Override
             public void run() {
+                Runnable r = this;
+                boolean isExpectedToChange = api.refreshTokenIfNeeded(currDeviceToken.getDevice(), currDeviceToken.getToken(), new Callback<>() {
+                    @Override
+                    public void onResponse(@NonNull Call<TuyaTokenResponse> call, @NonNull Response<TuyaTokenResponse> response) {
+                        TuyaTokenResponse body = response.body();
+                        if (response.isSuccessful() && body != null && body.isSuccess() && body.getResult() != null) {
+                            body.updateExpiredTime();
+                            TuyaTokenInfo tokenInfo = body.getResult();
+                            currDeviceToken.copyToken(tokenInfo);
+                            pullShadowPropertiesAndWrite(currDeviceToken);
+                            DeviceInfo updated = db.findById(id);
+                            if (updated != null && updated.isRunning()) {
+                                handler.postDelayed(r, 120 * 1000);
+                            }
+                            broadcastId(id);
+                        } else {
+                            broadcastId(currDeviceToken.getDevice().getId());
+                            Toast.makeText(DeviceService.this, "request is not successfully", Toast.LENGTH_SHORT).show();
+                        }
+                    }
 
-                /*
-                 TODO: Call Tuya api and fetch all the information.
-                 1. update database set device is Turn on.
-                 2. write it to the external storage.
-                 3. only send broadcast to change reload its values.
-                */
+                    @Override
+                    public void onFailure(@NonNull Call<TuyaTokenResponse> call, @NonNull Throwable t) {
+                        broadcastId(currDeviceToken.getDevice().getId());
+                        Toast.makeText(DeviceService.this, "Network Error", Toast.LENGTH_SHORT).show();
+                        stopMonitoring(currDeviceToken.getDevice().getId(), currDeviceToken.getDevice());
+                    }
+                });
 
-                DeviceInfo updated = db.findById(id);
-                if (updated != null && updated.isRunning()) {
-                    handler.postDelayed(this, 120 * 1000);
+                if (!isExpectedToChange) {
+                    pullShadowPropertiesAndWrite(currDeviceToken);
+                    DeviceInfo updated = db.findById(id);
+                    if (updated != null && updated.isRunning()) {
+                        handler.postDelayed(r, 120 * 1000);
+                    }
+                    broadcastId(id);
                 }
-
-                broadcastId(id);
             }
         };
         monitorTasks.put(id, task);
         handler.post(task);
     }
 
+    private void pullShadowPropertiesAndWrite(@NonNull TuyaDeviceToken currDeviceToken) {
+        TuyaOpenApi api = TuyaOpenApi.getInstance();
+        api.shadowProperties(currDeviceToken.getDevice(), currDeviceToken.getToken(), new Callback<>() {
+            private static final String SWITCH = "switch";
+            private static final String VOLTAGE = "output_voltage";
+            private static final String CURRENT = "output_current";
+            private static final String POWER = "output_power";
+
+            private boolean toBoolean(Object value) {
+                if (value instanceof Boolean) return (Boolean) value;
+                if (value instanceof Number) return ((Number) value).intValue() != 0;
+                return Boolean.parseBoolean(value.toString());
+            }
+
+            private double toDouble(Object value) {
+                if (value instanceof Number) return ((Number) value).doubleValue();
+                try {
+                    return Double.parseDouble(value.toString());
+                } catch (Exception e) {
+                    return 0;
+                }
+            }
+
+            @Override
+            public void onResponse(@NonNull Call<TuyaShadowPropertiesResponse> call, @NonNull Response<TuyaShadowPropertiesResponse> response) {
+                TuyaShadowPropertiesResponse body = response.body();
+                if (response.isSuccessful() && body != null && body.isSuccess() && body.getResult() != null && body.getResult().getProperties() != null) {
+                    DeviceInfo device = currDeviceToken.getDevice();
+                    boolean switchState = device.isTurnOn();
+                    double power = 0, voltage = 0, current = 0;
+                    try {
+                        for (var prop : body.getResult().getProperties()) {
+                            switch (prop.getCode()) {
+                                case SWITCH:
+                                    switchState = toBoolean(prop.getValue());
+                                    break;
+                                case VOLTAGE:
+                                    voltage = toDouble(prop.getValue());
+                                    break;
+                                case CURRENT:
+                                    current = toDouble(prop.getValue());
+                                    break;
+                                case POWER:
+                                    power = toDouble(prop.getValue());
+                                    break;
+                            }
+                        }
+                    } catch (Exception ignored) {
+                    }
+                    device.setTurnOn(switchState);
+                    db.updateDevice(device);
+                    writeToInternalStorage(device.getId(), body.getTimestamp(), power, voltage, current);
+                } else {
+                    stopMonitoring(currDeviceToken.getDevice().getId(), currDeviceToken.getDevice());
+                }
+            }
+
+            @Override
+            public void onFailure(@NonNull Call<TuyaShadowPropertiesResponse> call, @NonNull Throwable t) {
+                broadcastId(currDeviceToken.getDevice().getId());
+                stopMonitoring(currDeviceToken.getDevice().getId(), currDeviceToken.getDevice());
+                Toast.makeText(DeviceService.this, "Network Error", Toast.LENGTH_SHORT).show();
+            }
+        });
+    }
+
+    private void writeToInternalStorage(int id, long timestamp, double power, double voltage, double current) {
+        String fileName = "STAT" + id + ".csv";
+
+        try (FileOutputStream fos = openFileOutput(fileName, MODE_APPEND);
+             OutputStreamWriter osw = new OutputStreamWriter(fos);
+             BufferedWriter bw = new BufferedWriter(osw);
+             PrintWriter out = new PrintWriter(bw)) {
+
+            File file = new File(getFilesDir(), fileName);
+
+            if (file.length() == 0) {
+                out.println("Timestamp,Power,Voltage,Current");
+            }
+
+            out.printf("%d,%.2f,%.2f,%.2f\n", timestamp, power, voltage, current);
+
+            Log.d("CSV_WRITE", "Data written to internal storage");
+
+        } catch (Exception e) {
+            Log.e("CSV_WRITE", "Error writing internal CSV: " + e.getMessage());
+        }
+        sendBroadcast(
+            intentForBroadcast()
+                .putExtra(DeviceInfo.ID, id)
+                .putExtra(DeviceDetailActivity.POWER, power)
+                .putExtra(DeviceDetailActivity.VOLTAGE, voltage)
+                .putExtra(DeviceDetailActivity.CURRENT, power)
+        );
+    }
+
+
     private void broadcastId(int id) {
         sendBroadcast(
             intentForBroadcast()
                 .putExtra(DeviceInfo.ID, id)
         );
-
     }
 
     @NonNull
@@ -240,6 +378,7 @@ public class DeviceService extends Service {
             }
         }
         monitorTasks.clear();
+        deviceTokens.clear();
     }
 
     public enum SERVICE_STATE {

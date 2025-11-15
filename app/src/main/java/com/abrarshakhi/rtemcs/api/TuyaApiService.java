@@ -35,4 +35,10 @@ public interface TuyaApiService {
         @HeaderMap Map<String, String> headers,
         @Path("device_id") String deviceId
     );
+
+    @GET("/v1.0/token/{refresh_token}")
+    Call<TuyaTokenResponse> getNewToken(
+        @HeaderMap Map<String, String> headers,
+        @Path("refresh_token") String refreshToken
+    );
 }

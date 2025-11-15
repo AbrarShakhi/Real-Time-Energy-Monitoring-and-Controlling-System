@@ -53,7 +53,6 @@ public class TuyaOpenApi {
         headers.put("lang", "en");
         headers.put("dev_lang", "java");
         headers.put("dev_version", "1.0.0");
-        headers.put("dev_channel", "cloud_");
         return headers;
     }
 
@@ -77,7 +76,10 @@ public class TuyaOpenApi {
         return obj;
     }
 
-    private void requestToken(@NonNull String path, @NonNull DeviceInfo device, Map<String, String> params, @NonNull Callback<TuyaTokenResponse> callback) {
+    public void requestAccessToken(@NonNull DeviceInfo device, @NonNull Callback<TuyaTokenResponse> callback) {
+        Map<String, String> params = new HashMap<>();
+        params.put("grant_type", "1");
+        String path = "/v1.0/token";
 
         try {
             TuyaSign.SignResult sign = sign(device, "GET", path, params, null, "");
@@ -91,25 +93,24 @@ public class TuyaOpenApi {
         }
     }
 
-    public void requestAccessToken(@NonNull DeviceInfo device, @NonNull Callback<TuyaTokenResponse> callback) {
-
-        Map<String, String> params = new HashMap<>();
-        params.put("grant_type", "1");
-
-        requestToken("/v1.0/token", device, params, callback);
-    }
-
     public boolean refreshTokenIfNeeded(@NonNull DeviceInfo device, @NonNull TuyaTokenInfo token, @NonNull Callback<TuyaTokenResponse> callback) {
-
         long now = System.currentTimeMillis();
-
         if (token.getExpireTime() - 60_000 > now) {
-            return false; // still valid
+            return false;
         }
 
         String path = "/v1.0/token/" + token.getRefreshToken();
 
-        requestToken(path, device, null, callback);
+        try {
+            TuyaSign.SignResult sign = sign(device, "GET", path, null, null, "");
+
+            Map<String, String> headers = buildHeaders(device, sign, "");
+
+            api().getNewToken(headers, token.getRefreshToken()).enqueue(callback);
+
+        } catch (Exception e) {
+            Log.e("TUYA TOKEN", "EXCEPTION: " + e.getMessage());
+        }
         return true;
     }
 

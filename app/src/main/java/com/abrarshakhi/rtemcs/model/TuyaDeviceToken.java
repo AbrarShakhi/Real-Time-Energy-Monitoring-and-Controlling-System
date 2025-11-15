@@ -31,6 +31,7 @@ public class TuyaDeviceToken {
                 TuyaTokenResponse body = response.body();
 
                 if (response.isSuccessful() && body != null && body.isSuccess() && body.getResult() != null) {
+                    body.updateExpiredTime();
                     listener.onSuccess(new TuyaDeviceToken(device, body.getResult()));
                 } else {
                     listener.onError(new Exception("Failed to fetch Tuya token"));
