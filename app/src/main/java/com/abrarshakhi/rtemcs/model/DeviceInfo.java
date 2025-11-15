@@ -10,12 +10,6 @@ public class DeviceInfo {
     private boolean running;
     private boolean turnOn;
 
-    // === Constructors ===
-    public DeviceInfo(int id, String deviceName, String deviceId, String accessId, String accessSecret) {
-        this(deviceName, deviceId, accessId, accessSecret);
-        this.id = id;
-    }
-
     public DeviceInfo(String deviceName, String deviceId, String accessId, String accessSecret) {
         this.deviceName = deviceName;
         this.deviceId = deviceId;

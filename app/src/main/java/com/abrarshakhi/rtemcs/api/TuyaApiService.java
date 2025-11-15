@@ -2,6 +2,7 @@ package com.abrarshakhi.rtemcs.api;
 
 import com.abrarshakhi.rtemcs.model.TuyaCommand;
 import com.abrarshakhi.rtemcs.model.TuyaCommandResponse;
+import com.abrarshakhi.rtemcs.model.TuyaShadowPropertiesResponse;
 import com.abrarshakhi.rtemcs.model.TuyaTokenResponse;
 
 import java.util.Map;
@@ -27,5 +28,11 @@ public interface TuyaApiService {
         @HeaderMap Map<String, String> headers,
         @Path("device_id") String deviceId,
         @Body TuyaCommand body
+    );
+
+    @GET("/v2.0/cloud/thing/{device_id}/shadow/properties")
+    Call<TuyaShadowPropertiesResponse> getShadowProperties(
+        @HeaderMap Map<String, String> headers,
+        @Path("device_id") String deviceId
     );
 }

@@ -7,11 +7,11 @@ import androidx.annotation.NonNull;
 import com.abrarshakhi.rtemcs.model.DeviceInfo;
 import com.abrarshakhi.rtemcs.model.TuyaCommand;
 import com.abrarshakhi.rtemcs.model.TuyaCommandResponse;
+import com.abrarshakhi.rtemcs.model.TuyaShadowPropertiesResponse;
 import com.abrarshakhi.rtemcs.model.TuyaTokenInfo;
 import com.abrarshakhi.rtemcs.model.TuyaTokenResponse;
 import com.abrarshakhi.rtemcs.utils.TuyaSign;
 
-import org.jetbrains.annotations.NotNull;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
@@ -19,7 +19,6 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
-import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Retrofit;
 
@@ -39,68 +38,112 @@ public class TuyaOpenApi {
     }
 
     @NonNull
-    private static Map<String, String> makeHeaders(@NonNull DeviceInfo device, TuyaSign.SignResult signResult, String tokenInfo) {
+    private TuyaApiService api() {
+        return retrofit.create(TuyaApiService.class);
+    }
+
+    @NonNull
+    private Map<String, String> buildHeaders(@NonNull DeviceInfo device, @NonNull TuyaSign.SignResult result, @NonNull String token) {
         Map<String, String> headers = new HashMap<>();
         headers.put("client_id", device.getAccessId());
-        headers.put("sign", signResult.sign);
-        headers.put("t", String.valueOf(signResult.timestamp));
+        headers.put("sign", result.sign);
+        headers.put("t", String.valueOf(result.timestamp));
         headers.put("sign_method", "HMAC-SHA256");
-        headers.put("access_token", tokenInfo);
+        headers.put("access_token", token);
         headers.put("lang", "en");
         headers.put("dev_lang", "java");
         headers.put("dev_version", "1.0.0");
+        headers.put("dev_channel", "cloud_");
         return headers;
     }
 
-    public void requestAccessToken(@NotNull DeviceInfo device, @NotNull Callback<TuyaTokenResponse> callback) {
+    @NonNull
+    private TuyaSign.SignResult sign(DeviceInfo device, String method, String path, Map<String, String> params, JSONObject body, String token) {
+
+        return new TuyaSign(device.getAccessId(), device.getAccessSecret()).calculateSign(method, path, params, body, token);
+    }
+
+    @NonNull
+    private JSONObject buildCommandBody(@NonNull TuyaCommand body) throws Exception {
+        JSONObject obj = new JSONObject();
+        JSONArray arr = new JSONArray();
+        for (TuyaCommand.Command cmd : body.getCommands()) {
+            JSONObject c = new JSONObject();
+            c.put("code", cmd.getCode());
+            c.put("value", cmd.getValue());
+            arr.put(c);
+        }
+        obj.put("commands", arr);
+        return obj;
+    }
+
+    private void requestToken(@NonNull String path, @NonNull DeviceInfo device, Map<String, String> params, @NonNull Callback<TuyaTokenResponse> callback) {
+
         try {
-            String method = "GET";
-            String path = "/v1.0/token";
+            TuyaSign.SignResult sign = sign(device, "GET", path, params, null, "");
 
-            Map<String, String> params = new HashMap<>();
-            params.put("grant_type", "1");
+            Map<String, String> headers = buildHeaders(device, sign, "");
 
-            TuyaSign.SignResult signResult = new TuyaSign(device.getAccessId(), device.getAccessSecret())
-                .calculateSign(method, path, params, null, null);
+            api().getToken(headers, 1).enqueue(callback);
 
-            final Map<String, String> headers = makeHeaders(device, signResult, "");
-
-            TuyaApiService apiService = retrofit.create(TuyaApiService.class);
-            Call<TuyaTokenResponse> call = apiService.getToken(headers, 1);
-            call.enqueue(callback);
         } catch (Exception e) {
             Log.e("TUYA TOKEN", "EXCEPTION: " + e.getMessage());
         }
     }
 
-    public void togglePower(@NotNull DeviceInfo device, @NotNull TuyaTokenInfo tokenInfo, boolean power, @NotNull Callback<TuyaCommandResponse> callback) {
+    public void requestAccessToken(@NonNull DeviceInfo device, @NonNull Callback<TuyaTokenResponse> callback) {
+
+        Map<String, String> params = new HashMap<>();
+        params.put("grant_type", "1");
+
+        requestToken("/v1.0/token", device, params, callback);
+    }
+
+    public boolean refreshTokenIfNeeded(@NonNull DeviceInfo device, @NonNull TuyaTokenInfo token, @NonNull Callback<TuyaTokenResponse> callback) {
+
+        long now = System.currentTimeMillis();
+
+        if (token.getExpireTime() - 60_000 > now) {
+            return false; // still valid
+        }
+
+        String path = "/v1.0/token/" + token.getRefreshToken();
+
+        requestToken(path, device, null, callback);
+        return true;
+    }
+
+    public void togglePower(@NonNull DeviceInfo device, @NonNull TuyaTokenInfo tokenInfo, boolean state, @NonNull Callback<TuyaCommandResponse> callback) {
+        String method = "POST";
+        String path = "/v1.0/iot-03/devices/" + device.getDeviceId() + "/commands";
+
         try {
-            String method = "POST";
-            String path = String.format("/v1.0/iot-03/devices/%s/commands", device.getDeviceId());
+            TuyaCommand.Command cmd = new TuyaCommand.Command("switch", state);
+            TuyaCommand body = new TuyaCommand(Collections.singletonList(cmd));
 
-            TuyaCommand.Command command = new TuyaCommand.Command("switch", power);
-            TuyaCommand body = new TuyaCommand(Collections.singletonList(command));
+            JSONObject bodyJson = buildCommandBody(body);
 
-            JSONObject bodyJson = new JSONObject();
-            JSONArray commandsArray = new JSONArray();
-            for (TuyaCommand.Command cmd : body.getCommands()) {
-                JSONObject cmdObj = new JSONObject();
-                cmdObj.put("code", cmd.getCode());
-                cmdObj.put("value", cmd.getValue());
-                commandsArray.put(cmdObj);
-            }
-            bodyJson.put("commands", commandsArray);
+            TuyaSign.SignResult sig = sign(device, method, path, null, bodyJson, tokenInfo.getAccessToken());
+            Map<String, String> headers = buildHeaders(device, sig, tokenInfo.getAccessToken());
 
-            TuyaSign.SignResult signResult = new TuyaSign(device.getAccessId(), device.getAccessSecret())
-                .calculateSign(method, path, null, bodyJson, tokenInfo.getAccessToken());
+            api().sendCommand(headers, device.getDeviceId(), body).enqueue(callback);
 
-            final Map<String, String> headers = makeHeaders(device, signResult, tokenInfo.getAccessToken());
-
-            TuyaApiService apiService = retrofit.create(TuyaApiService.class);
-            Call<TuyaCommandResponse> call = apiService.sendCommand(headers, device.getDeviceId(), body);
-            call.enqueue(callback);
         } catch (Exception e) {
-            Log.e("TUYA TOKEN", "EXCEPTION: " + e.getMessage());
+            Log.e("TUYA CMD", "EXCEPTION: " + e.getMessage());
+        }
+    }
+
+    public void shadowProperties(@NonNull DeviceInfo device, @NonNull TuyaTokenInfo tokenInfo, @NonNull Callback<TuyaShadowPropertiesResponse> callback) {
+        String method = "GET";
+        String path = String.format("/v2.0/cloud/thing/%s/shadow/properties", device.getDeviceId());
+        try {
+            TuyaSign.SignResult sig = sign(device, method, path, null, null, tokenInfo.getAccessToken());
+            Map<String, String> headers = buildHeaders(device, sig, tokenInfo.getAccessToken());
+
+            api().getShadowProperties(headers, device.getDeviceId())
+                .enqueue(callback);
+        } catch (Exception e) {
+            Log.e("TUYA CMD", "EXCEPTION: " + e.getMessage());
         }
     }
 }

@@ -18,6 +18,8 @@ import com.abrarshakhi.rtemcs.data.DeviceInfoDb;
 import com.abrarshakhi.rtemcs.model.DeviceInfo;
 import com.abrarshakhi.rtemcs.model.TuyaCommandResponse;
 import com.abrarshakhi.rtemcs.model.TuyaDeviceToken;
+import com.abrarshakhi.rtemcs.model.TuyaTokenInfo;
+import com.abrarshakhi.rtemcs.model.TuyaTokenResponse;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -30,7 +32,7 @@ public class DeviceService extends Service {
     public static final String STATE = "STATE";
     private static final String CHANNEL_ID = "device_monitoring_service";
     private Handler handler;
-    private Runnable monitorTask;
+    private Map<Integer, Runnable> monitorTasks;
     private Map<Integer, TuyaDeviceToken> deviceTokens;
     private DeviceInfoDb db;
 
@@ -61,45 +63,72 @@ public class DeviceService extends Service {
                     deviceTokens.put(id, token);
                     db.updateDevice(currDevice);
                     startMonitoring(currDevice);
-                    if (deviceTokens.isEmpty()) {
-                        stopSelf();
-                    }
+                    stopMonitoringAndSelfKill();
                 }
 
                 @Override
                 public void onError(Throwable t) {
                     Toast.makeText(DeviceService.this, "Network Error", Toast.LENGTH_SHORT).show();
-                    if (deviceTokens.isEmpty()) {
-                        stopSelf();
-                    }
+                    stopMonitoringAndSelfKill();
                 }
             });
         } else if (state == SERVICE_STATE.STOP_MONITORING) {
+            Runnable task = monitorTasks.remove(id);
+            if (task != null) {
+                handler.removeCallbacks(task);
+            }
+
             currDevice.setRunning(false);
             db.updateDevice(currDevice);
             deviceTokens.remove(id);
-            if (deviceTokens.isEmpty()) {
-                stopSelf();
-            }
+
+            stopMonitoringAndSelfKill();
         } else {
             TuyaDeviceToken deviceToken = deviceTokens.get(id);
-            if (deviceToken == null || deviceToken.token == null) {
+            if (deviceToken == null || deviceToken.getToken() == null) {
                 return;
             }
             if (state == SERVICE_STATE.TURN_ON) {
-                toggleDevice(id, deviceToken, true);
+                toggleDevice(deviceToken, true);
             } else if (state == SERVICE_STATE.TURN_OFF) {
-                toggleDevice(id, deviceToken, false);
+                toggleDevice(deviceToken, false);
             }
         }
     }
 
-    private void toggleDevice(int id, @NonNull TuyaDeviceToken currDevice, boolean power) {
+    private void stopMonitoringAndSelfKill() {
+        if (deviceTokens.isEmpty() || monitorTasks.isEmpty()) {
+            stopSelf();
+        }
+    }
+
+    private void toggleDevice(@NonNull TuyaDeviceToken currDevice, boolean power) {
         TuyaOpenApi api = TuyaOpenApi.getInstance();
 
-        // TODO: REFRESH TOKEN IF NEEDED
+        boolean status = api.refreshTokenIfNeeded(currDevice.getDevice(), currDevice.getToken(), new Callback<>() {
+            @Override
+            public void onResponse(@NonNull Call<TuyaTokenResponse> call, @NonNull Response<TuyaTokenResponse> response) {
+                TuyaTokenResponse body = response.body();
+                if (response.isSuccessful() && body != null && body.isSuccess() && body.getResult() != null) {
+                    TuyaTokenInfo tokenInfo = body.getResult();
+                    currDevice.copyToken(tokenInfo);
+                    toggleDevice(currDevice, power);
+                } else {
+                    broadcastId(currDevice.getDevice().getId());
+                    Toast.makeText(DeviceService.this, "request is not successfully", Toast.LENGTH_SHORT).show();
+                }
+            }
 
-        api.togglePower(currDevice.getDevice(), currDevice.token, power, new Callback<>() {
+            @Override
+            public void onFailure(@NonNull Call<TuyaTokenResponse> call, @NonNull Throwable t) {
+                Toast.makeText(DeviceService.this, "Network Error", Toast.LENGTH_SHORT).show();
+            }
+        });
+
+        if (!status) {
+            return;
+        }
+        api.togglePower(currDevice.getDevice(), currDevice.getToken(), power, new Callback<>() {
             @Override
             public void onResponse(@NonNull Call<TuyaCommandResponse> call, @NonNull Response<TuyaCommandResponse> response) {
                 if (response.isSuccessful() && response.body() != null) {
@@ -108,35 +137,58 @@ public class DeviceService extends Service {
                         DeviceInfo di = currDevice.getDevice();
                         di.setTurnOn(power);
                         db.updateDevice(di);
+                    } else {
+                        broadcastId(currDevice.getDevice().getId());
+                        Toast.makeText(DeviceService.this, "request is not successfully", Toast.LENGTH_SHORT).show();
                     }
                 }
             }
 
             @Override
             public void onFailure(@NonNull Call<TuyaCommandResponse> call, @NonNull Throwable t) {
+                broadcastId(currDevice.getDevice().getId());
                 Toast.makeText(DeviceService.this, "Network Error", Toast.LENGTH_SHORT).show();
             }
         });
     }
 
     private void startMonitoring(@NonNull DeviceInfo currDevice) {
-        if (currDevice.isRunning()) {
+        int id = currDevice.getId();
+        if (monitorTasks.containsKey(id)) {
             return;
         }
         currDevice.setRunning(true);
         db.updateDevice(currDevice);
 
-        monitorTask = new Runnable() {
+        Runnable task = new Runnable() {
             @Override
             public void run() {
-                sendBroadcast(intentForBroadcast().putExtra(DeviceInfo.ID, currDevice.getId()));
-                if (currDevice.isRunning()) {
-                    handler.postDelayed(this, 2000);
+
+                /*
+                 TODO: Call Tuya api and fetch all the information.
+                 1. update database set device is Turn on.
+                 2. write it to the external storage.
+                 3. only send broadcast to change reload its values.
+                */
+
+                DeviceInfo updated = db.findById(id);
+                if (updated != null && updated.isRunning()) {
+                    handler.postDelayed(this, 120 * 1000);
                 }
+
+                broadcastId(id);
             }
         };
+        monitorTasks.put(id, task);
+        handler.post(task);
+    }
 
-        handler.post(monitorTask);
+    private void broadcastId(int id) {
+        sendBroadcast(
+            intentForBroadcast()
+                .putExtra(DeviceInfo.ID, id)
+        );
+
     }
 
     @NonNull
@@ -155,11 +207,7 @@ public class DeviceService extends Service {
     }
 
     private void createNotificationChannel() {
-        NotificationChannel serviceChannel = new NotificationChannel(
-            CHANNEL_ID,
-            "Device Service Channel",
-            NotificationManager.IMPORTANCE_LOW
-        );
+        NotificationChannel serviceChannel = new NotificationChannel(CHANNEL_ID, "Device Service Channel", NotificationManager.IMPORTANCE_LOW);
         NotificationManager manager = getSystemService(NotificationManager.class);
         if (manager != null) {
             manager.createNotificationChannel(serviceChannel);
@@ -169,7 +217,7 @@ public class DeviceService extends Service {
     @Override
     public void onCreate() {
         super.onCreate();
-
+        monitorTasks = new HashMap<>();
         deviceTokens = new HashMap<>();
         db = new DeviceInfoDb(this);
 
@@ -186,11 +234,12 @@ public class DeviceService extends Service {
                 db.updateDevice(tt.getDevice());
             }
         });
-        deviceTokens = null;
-        db = null;
-        if (handler != null && monitorTask != null) {
-            handler.removeCallbacks(monitorTask);
+        if (handler != null) {
+            for (Runnable task : monitorTasks.values()) {
+                handler.removeCallbacks(task);
+            }
         }
+        monitorTasks.clear();
     }
 
     public enum SERVICE_STATE {

@@ -1,6 +1,7 @@
 package com.abrarshakhi.rtemcs.model;
 
 import androidx.annotation.NonNull;
+
 import com.abrarshakhi.rtemcs.api.TuyaOpenApi;
 
 import org.jetbrains.annotations.NotNull;
@@ -11,15 +12,9 @@ import retrofit2.Response;
 
 public class TuyaDeviceToken {
 
-    public interface Listener {
-        void onSuccess(TuyaDeviceToken token);
-        void onError(Throwable t);
-    }
-
     private static final TuyaOpenApi api = TuyaOpenApi.getInstance();
-
     private final DeviceInfo device;
-    public final TuyaTokenInfo token;
+    private final TuyaTokenInfo token;
 
     private TuyaDeviceToken(DeviceInfo device, TuyaTokenInfo token) {
         this.device = device;
@@ -50,7 +45,24 @@ public class TuyaDeviceToken {
         });
     }
 
+    public void copyToken(TuyaTokenInfo token) {
+        token.setAccessToken(token.getAccessToken());
+        token.setRefreshToken(token.getRefreshToken());
+        token.setExpireTime(token.getExpireTime());
+        token.setUid(token.getUid());
+    }
+
+    public TuyaTokenInfo getToken() {
+        return token;
+    }
+
     public DeviceInfo getDevice() {
         return device;
+    }
+
+    public interface Listener {
+        void onSuccess(TuyaDeviceToken token);
+
+        void onError(Throwable t);
     }
 }

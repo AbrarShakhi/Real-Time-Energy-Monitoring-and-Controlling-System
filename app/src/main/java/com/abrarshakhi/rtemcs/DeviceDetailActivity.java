@@ -25,28 +25,31 @@ import com.google.android.material.materialswitch.MaterialSwitch;
 
 public class DeviceDetailActivity extends AppCompatActivity {
     public static final String ACTION_UPDATE_SWITCH = "com.abrarshakhi.rtemcs.UPDATE_SWITCH";
+
     DeviceInfoDb db;
     private Button btnBack, btnEdit;
     private DeviceInfo device;
     private MaterialSwitch swMonitorDevice, swToggleDevice;
+
     private final BroadcastReceiver switchReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
-            if (intent != null && DeviceDetailActivity.ACTION_UPDATE_SWITCH.equals(intent.getAction())) {
-                int id = intent.getIntExtra(DeviceInfo.ID, -1);
-                DeviceInfo d = db.findById(id);
-                if (d == null)
-                    return;
-                boolean isRunning = d.isRunning();
-                boolean isTurnOn = d.isTurnOn();
-                if (swMonitorDevice.isEnabled() != isRunning) {
-                    swMonitorDevice.setChecked(isRunning);
-                }
-                if (swToggleDevice.isEnabled() != isTurnOn) {
-                    swToggleDevice.setChecked(isTurnOn);
-                }
-
+            if (intent == null || !DeviceDetailActivity.ACTION_UPDATE_SWITCH.equals(intent.getAction())) {
+                return;
             }
+            int id = intent.getIntExtra(DeviceInfo.ID, -1);
+            DeviceInfo d = db.findById(id);
+            if (d == null)
+                return;
+            boolean isRunning = d.isRunning();
+            boolean isTurnOn = d.isTurnOn();
+            if (swMonitorDevice.isEnabled() != isRunning) {
+                swMonitorDevice.setChecked(isRunning);
+            }
+            if (swToggleDevice.isEnabled() != isTurnOn) {
+                swToggleDevice.setChecked(isTurnOn);
+            }
+
         }
     };
 
