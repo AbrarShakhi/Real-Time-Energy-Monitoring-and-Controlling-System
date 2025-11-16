@@ -1,5 +1,7 @@
 package com.abrarshakhi.rtemcs;
 
+import static com.google.gson.internal.GsonTypes.arrayOf;
+
 import android.Manifest;
 import android.content.Intent;
 import android.content.pm.PackageManager;

@@ -21,6 +21,10 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.RealTimeEnergyMonitoringAndControllingSystem">
+        <activity
+            android:name=".PickIntervalActivity"
+            android:exported="false" />
+
         <service
             android:name=".DeviceService"
             android:exported="false"
@@ -32,7 +36,6 @@
             <intent-filter>
                 <action android:name="com.abrarshakhi.rtemcs.UPDATE_SWITCH" />
             </intent-filter>
-
         </activity>
         <activity
             android:name=".DeviceInfoActivity"

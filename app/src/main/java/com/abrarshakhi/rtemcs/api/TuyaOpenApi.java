@@ -95,7 +95,8 @@ public class TuyaOpenApi {
 
     public boolean refreshTokenIfNeeded(@NonNull DeviceInfo device, @NonNull TuyaTokenInfo token, @NonNull Callback<TuyaTokenResponse> callback) {
         long now = System.currentTimeMillis();
-        if (token.getExpireTime() - 60_000 > now) {
+        long exp = token.getExpireTime() - (60 * 1000);
+        if (exp > now) {
             return false;
         }
 

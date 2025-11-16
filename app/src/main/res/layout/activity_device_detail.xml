@@ -1,11 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/main"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     tools:context=".DeviceDetailActivity"
+    android:orientation="vertical"
     tools:ignore="HardcodedText">
 
     <TextView
@@ -14,9 +15,9 @@
         android:layout_height="wrap_content"
         android:background="@color/black"
         android:gravity="start"
-        android:padding="7sp"
-        android:paddingStart="14sp"
-        android:paddingEnd="14sp"
+        android:padding="7dp"
+        android:paddingStart="14dp"
+        android:paddingEnd="14dp"
         android:text="Device Details"
         android:textColor="@color/white"
         android:textSize="25sp"
@@ -28,29 +29,176 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        app:layout_constraintBottom_toTopOf="@+id/llBottomButtonDetails">
+        android:padding="16dp">
+
+        <!-- Start Time -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:padding="8dp">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Start Time:"
+                android:textSize="18sp" />
+
+            <EditText
+                android:id="@+id/etStartTime"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:hint="hh:mm dd/mm/yyyy"
+                android:textSize="18sp"
+                android:padding="6dp"
+                android:inputType="datetime"
+                android:background="#EEEEEE"/>
+        </LinearLayout>
+
+        <!-- End Time -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:padding="8dp">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="End Time:"
+                android:textSize="18sp" />
+
+            <EditText
+                android:id="@+id/etEndTime"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:hint="hh:mm dd/mm/yyyy"
+                android:textSize="18sp"
+                android:padding="6dp"
+                android:inputType="datetime"
+                android:background="#EEEEEE"/>
+        </LinearLayout>
+
+        <Button
+            android:id="@+id/btnRefChart"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:backgroundTint="@color/black"
+            android:text="Reload Chart"/>
+
+    </LinearLayout>
+
+
+
+    <com.github.mikephil.charting.charts.BarChart
+        android:id="@+id/graphView"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:layout_margin="10dp"/>
+
+    <TableLayout
+        android:id="@+id/tlInfo"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:stretchColumns="1">
+
+        <!-- Row 1 -->
+        <TableRow
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:padding="6dp">
+
+            <TextView
+                android:id="@+id/tvRow1Col1"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Power (kW)"
+                android:textSize="16sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/tvRow1Col2"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Energy (unit)"
+                android:textSize="16sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/tvRow1Col3"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Bill (tk)"
+                android:textSize="16sp"
+                android:textStyle="bold" />
+        </TableRow>
+
+        <!-- Row 2 -->
+        <TableRow
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:padding="6dp">
+
+            <TextView
+                android:id="@+id/tvPwr"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="--"
+                android:textSize="16sp" />
+
+            <TextView
+                android:id="@+id/tvEnergy"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="--"
+                android:textSize="16sp" />
+
+            <TextView
+                android:id="@+id/tvBill"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="--"
+                android:textSize="16sp" />
+        </TableRow>
+
+    </TableLayout>
+
+    <LinearLayout
+        android:id="@+id/llSwitches"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
 
         <com.google.android.material.materialswitch.MaterialSwitch
             android:id="@+id/swMonitorDeviceDetail"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Monitor Device"
             android:layout_marginStart="8dp"
             android:layout_marginEnd="8dp"
             android:checked="false"
-            android:textSize="16sp"
-            android:paddingVertical="8dp" />
+            android:paddingVertical="8dp"
+            android:text="Monitor Device"
+            android:textSize="16sp" />
 
         <com.google.android.material.materialswitch.MaterialSwitch
             android:id="@+id/swToggleDeviceDetail"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Toggle Device"
             android:layout_marginStart="8dp"
             android:layout_marginEnd="8dp"
             android:checked="false"
-            android:textSize="16sp"
-            android:paddingVertical="8dp" />
+            android:paddingVertical="8dp"
+            android:text="Toggle Device"
+            android:textSize="16sp" />
 
     </LinearLayout>
 
@@ -59,8 +207,7 @@
         style="?android:attr/buttonBarStyle"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        app:layout_constraintBottom_toBottomOf="parent">
+        android:orientation="horizontal">
 
         <Button
             android:id="@+id/btnBackDetail"
@@ -87,6 +234,4 @@
             android:textColor="@color/white" />
 
     </LinearLayout>
-
-
-</androidx.constraintlayout.widget.ConstraintLayout>
+</LinearLayout>

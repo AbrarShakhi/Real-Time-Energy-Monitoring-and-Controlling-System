@@ -26,6 +26,7 @@ import com.abrarshakhi.rtemcs.model.TuyaTokenResponse;
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileOutputStream;
+import java.io.FileWriter;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.util.HashMap;
@@ -136,9 +137,9 @@ public class DeviceService extends Service {
 
             @Override
             public void onFailure(@NonNull Call<TuyaTokenResponse> call, @NonNull Throwable t) {
-                stopMonitoring(currDevice.getDevice().getId(), currDevice.getDevice());
                 broadcastId(currDevice.getDevice().getId());
                 Toast.makeText(DeviceService.this, "Network Error", Toast.LENGTH_SHORT).show();
+                stopMonitoring(currDevice.getDevice().getId(), currDevice.getDevice());
             }
         });
 
@@ -276,7 +277,7 @@ public class DeviceService extends Service {
                     }
                     device.setTurnOn(switchState);
                     db.updateDevice(device);
-                    writeToInternalStorage(device.getId(), body.getTimestamp(), power, voltage, current);
+                    writeToExternalAppStorage(device.getId(), body.getTimestamp(), power / 1000);
                 } else {
                     stopMonitoring(currDeviceToken.getDevice().getId(), currDeviceToken.getDevice());
                 }
@@ -291,35 +292,32 @@ public class DeviceService extends Service {
         });
     }
 
-    private void writeToInternalStorage(int id, long timestamp, double power, double voltage, double current) {
+    private void writeToExternalAppStorage(int id, long timestamp, double powerKiloWatt) {
         String fileName = "STAT" + id + ".csv";
+        File file = new File(getExternalFilesDir(null), fileName);
 
-        try (FileOutputStream fos = openFileOutput(fileName, MODE_APPEND);
-             OutputStreamWriter osw = new OutputStreamWriter(fos);
-             BufferedWriter bw = new BufferedWriter(osw);
+        try (FileWriter fw = new FileWriter(file, true);
+             BufferedWriter bw = new BufferedWriter(fw);
              PrintWriter out = new PrintWriter(bw)) {
 
-            File file = new File(getFilesDir(), fileName);
-
             if (file.length() == 0) {
-                out.println("Timestamp,Power,Voltage,Current");
+                out.println("Timestamp,PowerKiloWatt");
             }
 
-            out.printf("%d,%.2f,%.2f,%.2f\n", timestamp, power, voltage, current);
-
-            Log.d("CSV_WRITE", "Data written to internal storage");
+            out.printf("%d,%f%n", timestamp, powerKiloWatt);
 
         } catch (Exception e) {
-            Log.e("CSV_WRITE", "Error writing internal CSV: " + e.getMessage());
+            Log.e("CSV_WRITE", "Error writing CSV: " + e.getMessage());
         }
+
         sendBroadcast(
             intentForBroadcast()
                 .putExtra(DeviceInfo.ID, id)
-                .putExtra(DeviceDetailActivity.POWER, power)
-                .putExtra(DeviceDetailActivity.VOLTAGE, voltage)
-                .putExtra(DeviceDetailActivity.CURRENT, power)
+                .putExtra(DeviceDetailActivity.POWER, powerKiloWatt)
+                .putExtra(DeviceDetailActivity.HAS_STAT, true)
         );
     }
+
 
 
     private void broadcastId(int id) {

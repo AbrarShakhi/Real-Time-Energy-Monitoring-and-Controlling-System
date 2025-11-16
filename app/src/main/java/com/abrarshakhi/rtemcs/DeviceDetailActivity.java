@@ -2,14 +2,21 @@ package com.abrarshakhi.rtemcs;
 
 import android.Manifest;
 import android.annotation.SuppressLint;
+import android.app.DatePickerDialog;
+import android.app.TimePickerDialog;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
+import android.graphics.Color;
+import android.icu.text.SimpleDateFormat;
 import android.os.Build;
 import android.os.Bundle;
+import android.util.Log;
 import android.widget.Button;
+import android.widget.EditText;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.activity.EdgeToEdge;
@@ -21,21 +28,39 @@ import androidx.core.view.WindowInsetsCompat;
 
 import com.abrarshakhi.rtemcs.data.DeviceInfoDb;
 import com.abrarshakhi.rtemcs.model.DeviceInfo;
+import com.abrarshakhi.rtemcs.model.StatRecord;
+import com.github.mikephil.charting.charts.BarChart;
+import com.github.mikephil.charting.components.XAxis;
+import com.github.mikephil.charting.components.YAxis;
+import com.github.mikephil.charting.data.BarData;
+import com.github.mikephil.charting.data.BarDataSet;
+import com.github.mikephil.charting.data.BarEntry;
+import com.github.mikephil.charting.formatter.IndexAxisValueFormatter;
 import com.google.android.material.materialswitch.MaterialSwitch;
 
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileReader;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.List;
 import java.util.Locale;
 
 public class DeviceDetailActivity extends AppCompatActivity {
     public static final String ACTION_UPDATE_SWITCH = "com.abrarshakhi.rtemcs.UPDATE_SWITCH";
     public static final String POWER = "P";
-    public static final String CURRENT = "C";
-    public static final String VOLTAGE = "V";
+    public static final String HAS_STAT = "S";
 
     DeviceInfoDb db;
-    private Button btnBack, btnEdit;
+    double power;
+    long startMillis, endMillis;
+    BarChart graphView;
+    EditText etStartTime, etEndTime;
+    private Button btnBack, btnEdit, btnRefChart;
     private DeviceInfo device;
     private MaterialSwitch swMonitorDevice, swToggleDevice;
-
+    private TextView tvBill, tvPwr, tvEnergy;
+    private int lastSentId = 1;
     private final BroadcastReceiver switchReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
@@ -48,20 +73,225 @@ public class DeviceDetailActivity extends AppCompatActivity {
                 return;
             boolean isRunning = d.isRunning();
             boolean isTurnOn = d.isTurnOn();
-            if (swMonitorDevice.isEnabled() != isRunning) {
+            if (swMonitorDevice.isChecked() != isRunning) {
                 swMonitorDevice.setChecked(isRunning);
             }
-            if (swToggleDevice.isEnabled() != isTurnOn) {
+            if (swToggleDevice.isChecked() != isTurnOn) {
                 swToggleDevice.setChecked(isTurnOn);
             }
-            double power, voltage, current;
+            lastSentId = id;
             power = intent.getDoubleExtra(POWER, 0);
-            voltage = intent.getDoubleExtra(VOLTAGE, 0);
-            current = intent.getDoubleExtra(CURRENT, 0);
-
-            Toast.makeText(context, String.format(Locale.US,"%.2f  %.2f  %.2f", power, voltage, current), Toast.LENGTH_SHORT).show();
+            boolean hasStat = intent.getBooleanExtra(HAS_STAT, false);
+            if (hasStat) {
+                Toast.makeText(context, "POWER RECEIVED: " + power, Toast.LENGTH_SHORT).show();
+            }
+            updateStats(id);
         }
     };
+
+    private void updateStats(int id) {
+        String start = etStartTime.getText().toString().trim();
+        String end = etEndTime.getText().toString().trim();
+
+        endMillis = !end.isBlank() ? convertToMillis(end) : System.currentTimeMillis();
+        startMillis = !start.isBlank() ? convertToMillis(start) : 0;
+
+        if (startMillis > endMillis) {
+            Toast.makeText(this, "Invalid time range", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        String fileName = "STAT" + id + ".csv";
+
+        // --- Load and filter CSV ---
+        List<StatRecord> csvData = loadCsvData(fileName);
+        List<StatRecord> filtered = filterByRange(csvData, startMillis, endMillis);
+
+        // --- Plot ---
+        plotBarChart(filtered);
+
+        tvPwr.setText(String.valueOf(power));
+
+        float energy = calculateEnergy(filtered, startMillis, endMillis);
+        tvEnergy.setText(String.format(Locale.US, "%.3f kWh", energy));
+
+        double bill = calculateBill(energy);
+        tvBill.setText(String.format(Locale.US, "৳ %.2f", bill));
+    }
+
+    private List<StatRecord> loadCsvData(String fileName) {
+
+        List<StatRecord> data = new ArrayList<>();
+
+        File file = new File(getExternalFilesDir(null), fileName);
+
+        if (!file.exists()) {
+            Log.e("CSV_READ", "File not found: " + file.getAbsolutePath());
+            return data;
+        }
+
+        try (BufferedReader br = new BufferedReader(new FileReader(file))) {
+            String line;
+            boolean skipHeader = true;
+
+            while ((line = br.readLine()) != null) {
+
+                if (skipHeader) {
+                    skipHeader = false;
+                    continue;
+                }
+
+                String[] col = line.split(",");
+
+                try {
+                    long ts = Long.parseLong(col[0]);
+                    double pw = Double.parseDouble(col[1]);
+                    data.add(new StatRecord(ts, pw));
+                } catch (Exception ignore) {
+                }
+            }
+
+        } catch (Exception e) {
+            Log.e("CSV_READ", "Error reading CSV: " + e.getMessage());
+        }
+
+        return data;
+    }
+
+    private void plotBarChart(List<StatRecord> list) {
+
+        List<BarEntry> entries = new ArrayList<>();
+        List<Long> xValues = new ArrayList<>();
+
+        for (int i = 0; i < list.size(); i++) {
+            entries.add(new BarEntry(i, (float) list.get(i).powerKW));
+            xValues.add(list.get(i).timestampMs);
+        }
+
+        BarDataSet dataSet = new BarDataSet(entries, "Power (kW)");
+        dataSet.setColor(Color.parseColor("#2196F3"));
+        dataSet.setValueTextSize(10f);
+
+        BarData data = new BarData(dataSet);
+        data.setBarWidth(0.8f);
+
+        graphView.setData(data);
+        graphView.setFitBars(true);
+
+        // --- X Axis ---
+        XAxis xAxis = graphView.getXAxis();
+        xAxis.setPosition(XAxis.XAxisPosition.BOTTOM);
+        xAxis.setGranularity(1f);
+        xAxis.setLabelRotationAngle(45f);
+
+        // Format timestamp → "dd/MM/yyyy HH:mm"
+        xAxis.setValueFormatter(new IndexAxisValueFormatter() {
+            @Override
+            public String getFormattedValue(float value) {
+                int index = (int) value;
+                if (index < 0 || index >= xValues.size()) return "";
+                return new SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.US)
+                    .format(new Date(xValues.get(index)));
+            }
+        });
+
+        // --- Y Axis ---
+        YAxis left = graphView.getAxisLeft();
+        left.setAxisMinimum(0f); // No negative values
+        left.setGranularity(0.1f);
+
+        graphView.getAxisRight().setEnabled(false); // Disable right Y axis
+
+        // --- Enable scrolling + zoom ---
+        graphView.setDragEnabled(true);
+        graphView.setScaleEnabled(true);
+        graphView.setPinchZoom(true);
+
+        graphView.invalidate();
+    }
+
+
+    private List<StatRecord> filterByRange(List<StatRecord> list, long startMillis, long endMillis) {
+        List<StatRecord> filtered = new ArrayList<>();
+
+        for (StatRecord r : list) {
+            if (r.timestampMs >= startMillis && r.timestampMs <= endMillis) {
+                filtered.add(r);
+            }
+        }
+
+        return filtered;
+    }
+
+
+    private float calculateEnergy(List<StatRecord> csvData, long startMillis, long endMillis) {
+        if (csvData == null || csvData.isEmpty()) return 0f;
+
+        // Sort by timestamp for safety
+        csvData.sort((a, b) -> Long.compare(a.timestampMs, b.timestampMs));
+
+        float totalEnergy = 0f;
+
+        long prevTime = startMillis;
+        double prevPower = 0.0;
+
+        for (StatRecord r : csvData) {
+
+            long time = r.timestampMs;
+            double power = r.powerKW;
+
+            // Skip earlier data
+            if (time < startMillis) {
+                prevPower = power;     // still update last known power
+                prevTime = time;
+                continue;
+            }
+
+            if (time > endMillis) break;
+
+            // Calculate Δt (hours)
+            long deltaMillis = time - prevTime;
+            float deltaHours = deltaMillis / 3600000f;
+
+            // Energy = previous power * time interval
+            totalEnergy += (float) prevPower * deltaHours;
+
+            prevTime = time;
+            prevPower = power;
+        }
+
+        // Final segment until endMillis
+        if (prevTime < endMillis) {
+            long deltaMillis = endMillis - prevTime;
+            float deltaHours = deltaMillis / 3600000f;
+            totalEnergy += (float) prevPower * deltaHours;
+        }
+
+        return totalEnergy; // kWh
+    }
+
+
+    private double calculateBill(float energyKWh) {
+        double bill;
+
+        if (energyKWh <= 50) {
+            bill = energyKWh * 4.63;
+        } else if (energyKWh <= 75) {
+            bill = 50 * 4.63 + (energyKWh - 50) * 5.26;
+        } else if (energyKWh <= 200) {
+            bill = 50 * 4.63 + 25 * 5.26 + (energyKWh - 75) * 7.20;
+        } else if (energyKWh <= 300) {
+            bill = 50 * 4.63 + 25 * 5.26 + 125 * 7.20 + (energyKWh - 200) * 7.59;
+        } else if (energyKWh <= 400) {
+            bill = 50 * 4.63 + 25 * 5.26 + 125 * 7.20 + 100 * 7.59 + (energyKWh - 300) * 8.02;
+        } else if (energyKWh <= 600) {
+            bill = 50 * 4.63 + 25 * 5.26 + 125 * 7.20 + 100 * 7.59 + 100 * 8.02 + (energyKWh - 400) * 12.67;
+        } else {
+            bill = 50 * 4.63 + 25 * 5.26 + 125 * 7.20 + 100 * 7.59 + 100 * 8.02 + 200 * 12.67 + (energyKWh - 600) * 14.61;
+        }
+
+        return bill;
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -78,6 +308,8 @@ public class DeviceDetailActivity extends AppCompatActivity {
         initViews();
         initButtons();
         initSwitches();
+        endMillis = System.currentTimeMillis();
+        startMillis = 0;
     }
 
     @Override
@@ -127,6 +359,7 @@ public class DeviceDetailActivity extends AppCompatActivity {
             device = db.findById(device.getId());
             swMonitorDevice.setChecked(device.isRunning());
             swToggleDevice.setChecked(device.isTurnOn());
+            updateStats(device.getId());
         }
         btnEdit.setEnabled(!swMonitorDevice.isChecked());
         swToggleDevice.setEnabled(swMonitorDevice.isChecked());
@@ -137,6 +370,13 @@ public class DeviceDetailActivity extends AppCompatActivity {
         btnEdit = findViewById(R.id.btnEditDetail);
         swMonitorDevice = findViewById(R.id.swMonitorDeviceDetail);
         swToggleDevice = findViewById(R.id.swToggleDeviceDetail);
+        tvBill = findViewById(R.id.tvBill);
+        tvPwr = findViewById(R.id.tvPwr);
+        tvEnergy = findViewById(R.id.tvEnergy);
+        graphView = findViewById(R.id.graphView);
+        btnRefChart = findViewById(R.id.btnRefChart);
+        etStartTime = findViewById(R.id.etStartTime);
+        etEndTime = findViewById(R.id.etEndTime);
     }
 
     private void initButtons() {
@@ -144,6 +384,100 @@ public class DeviceDetailActivity extends AppCompatActivity {
         btnEdit.setOnClickListener(v ->
             startActivity(new Intent(DeviceDetailActivity.this, DeviceInfoActivity.class).putExtra(DeviceInfo.ID, device.getId()))
         );
+        etStartTime.setFocusable(false);
+        etStartTime.setClickable(true);
+
+        etEndTime.setFocusable(false);
+        etEndTime.setClickable(true);
+
+        etStartTime.setOnClickListener(v -> showDateTimePicker(etStartTime));
+        etEndTime.setOnClickListener(v -> showDateTimePicker(etEndTime));
+
+        btnRefChart.setOnClickListener(v -> {
+            String start = etStartTime.getText().toString().trim();
+            String end = etEndTime.getText().toString().trim();
+            if (end.isBlank()) {
+                endMillis = System.currentTimeMillis();
+            } else {
+                endMillis = convertToMillis(end);
+            }
+            if (start.isBlank()) {
+                startMillis = 0;
+            } else {
+                startMillis = convertToMillis(start);
+            }
+            updateStats(lastSentId);
+        });
+    }
+
+    private long convertToMillis(String dateTime) {
+        try {
+            SimpleDateFormat sdf = new SimpleDateFormat("HH:mm dd/MM/yyyy", Locale.getDefault());
+            Date date = sdf.parse(dateTime);
+            return date != null ? date.getTime() : 0;
+        } catch (Exception e) {
+            return 0;
+        }
+    }
+
+
+    private void showDateTimePicker(EditText target) {
+
+        // Step 1: Pick a date
+        DatePickerDialog datePicker = new DatePickerDialog(
+            this,
+            (view, year, month, dayOfMonth) -> {
+
+                // Step 2: Pick a time after date is selected
+                TimePickerDialog timePicker = new TimePickerDialog(
+                    this,
+                    (timeView, hour, minute) -> {
+
+                        // Format date + time
+                        String result = String.format(
+                            Locale.US,
+                            "%02d:%02d %02d/%02d/%04d",
+                            hour, minute, dayOfMonth, month + 1, year
+                        );
+
+                        target.setText(result);
+
+                    }, 12, 0, true
+                );
+
+                timePicker.show();
+
+            }, 2024, 0, 1
+        );
+
+        datePicker.show();
+    }
+
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+
+        if (requestCode == 1001 && resultCode == RESULT_OK) {
+
+            int sY = data.getIntExtra("startYear", 0);
+            int sM = data.getIntExtra("startMonth", 0);
+            int sD = data.getIntExtra("startDay", 0);
+            int sH = data.getIntExtra("startHour", 0);
+            int sMin = data.getIntExtra("startMinute", 0);
+
+            int eY = data.getIntExtra("endYear", 0);
+            int eM = data.getIntExtra("endMonth", 0);
+            int eD = data.getIntExtra("endDay", 0);
+            int eH = data.getIntExtra("endHour", 0);
+            int eMin = data.getIntExtra("endMinute", 0);
+
+            // Example: show values
+            String msg = "Start: " + sY + "-" + (sM + 1) + "-" + sD + " " + sH + ":" + sMin +
+                "\nEnd: " + eY + "-" + (eM + 1) + "-" + eD + " " + eH + ":" + eMin;
+
+            Toast.makeText(this, msg, Toast.LENGTH_LONG).show();
+        }
     }
 
     private void initSwitches() {
