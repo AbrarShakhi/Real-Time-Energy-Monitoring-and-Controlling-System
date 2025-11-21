@@ -16,7 +16,9 @@ import androidx.core.app.NotificationCompat;
 
 import com.abrarshakhi.rtemcs.api.TuyaOpenApi;
 import com.abrarshakhi.rtemcs.data.DeviceInfoDb;
+import com.abrarshakhi.rtemcs.data.PowerConsumptionHistDb;
 import com.abrarshakhi.rtemcs.model.DeviceInfo;
+import com.abrarshakhi.rtemcs.model.StatRecord;
 import com.abrarshakhi.rtemcs.model.TuyaCommandResponse;
 import com.abrarshakhi.rtemcs.model.TuyaDeviceToken;
 import com.abrarshakhi.rtemcs.model.TuyaShadowPropertiesResponse;
@@ -25,9 +27,7 @@ import com.abrarshakhi.rtemcs.model.TuyaTokenResponse;
 
 import java.io.BufferedWriter;
 import java.io.File;
-import java.io.FileOutputStream;
 import java.io.FileWriter;
-import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.util.HashMap;
 import java.util.Map;
@@ -43,6 +43,7 @@ public class DeviceService extends Service {
     private Map<Integer, Runnable> monitorTasks;
     private Map<Integer, TuyaDeviceToken> deviceTokens;
     private DeviceInfoDb db;
+    private PowerConsumptionHistDb statsDb;
 
     @Override
     public IBinder onBind(Intent intent) {
@@ -52,7 +53,6 @@ public class DeviceService extends Service {
     @Override
     public int onStartCommand(@NonNull Intent intent, int flags, int startId) {
         final Notification notification = getNotification();
-
         int id = intent.getIntExtra(DeviceInfo.ID, -1);
         SERVICE_STATE state = SERVICE_STATE.values()[intent.getIntExtra(STATE, SERVICE_STATE.IGNORE.ordinal())];
         DeviceInfo currDevice = db.findById(id);
@@ -192,12 +192,7 @@ public class DeviceService extends Service {
                             body.updateExpiredTime();
                             TuyaTokenInfo tokenInfo = body.getResult();
                             currDeviceToken.copyToken(tokenInfo);
-                            pullShadowPropertiesAndWrite(currDeviceToken);
-                            DeviceInfo updated = db.findById(id);
-                            if (updated != null && updated.isRunning()) {
-                                handler.postDelayed(r, 120 * 1000);
-                            }
-                            broadcastId(id);
+                            fetchInformation(r, currDeviceToken, id);
                         } else {
                             broadcastId(currDeviceToken.getDevice().getId());
                             Toast.makeText(DeviceService.this, "request is not successfully", Toast.LENGTH_SHORT).show();
@@ -213,17 +208,21 @@ public class DeviceService extends Service {
                 });
 
                 if (!isExpectedToChange) {
-                    pullShadowPropertiesAndWrite(currDeviceToken);
-                    DeviceInfo updated = db.findById(id);
-                    if (updated != null && updated.isRunning()) {
-                        handler.postDelayed(r, 120 * 1000);
-                    }
-                    broadcastId(id);
+                    fetchInformation(r, currDeviceToken, id);
                 }
             }
         };
         monitorTasks.put(id, task);
         handler.post(task);
+    }
+
+    private void fetchInformation(Runnable r, @NonNull TuyaDeviceToken currDeviceToken, int id) {
+        pullShadowPropertiesAndWrite(currDeviceToken);
+        DeviceInfo updated = db.findById(id);
+        if (updated != null && updated.isRunning()) {
+            handler.postDelayed(r, 10 * 1000);
+        }
+        broadcastId(id);
     }
 
     private void pullShadowPropertiesAndWrite(@NonNull TuyaDeviceToken currDeviceToken) {
@@ -277,7 +276,7 @@ public class DeviceService extends Service {
                     }
                     device.setTurnOn(switchState);
                     db.updateDevice(device);
-                    writeToExternalAppStorage(device.getId(), body.getTimestamp(), power / 1000);
+                    saveToDb(device.getId(), body.getTimestamp(), power / 1000);
                 } else {
                     stopMonitoring(currDeviceToken.getDevice().getId(), currDeviceToken.getDevice());
                 }
@@ -290,6 +289,10 @@ public class DeviceService extends Service {
                 Toast.makeText(DeviceService.this, "Network Error", Toast.LENGTH_SHORT).show();
             }
         });
+    }
+
+    private void saveToDb(int id, long timestamp, double power) {
+        statsDb.insertRecord(new StatRecord(id, timestamp, power));
     }
 
     private void writeToExternalAppStorage(int id, long timestamp, double powerKiloWatt) {
@@ -317,7 +320,6 @@ public class DeviceService extends Service {
                 .putExtra(DeviceDetailActivity.HAS_STAT, true)
         );
     }
-
 
 
     private void broadcastId(int id) {
@@ -356,6 +358,7 @@ public class DeviceService extends Service {
         monitorTasks = new HashMap<>();
         deviceTokens = new HashMap<>();
         db = new DeviceInfoDb(this);
+        statsDb = new PowerConsumptionHistDb(this);
 
         createNotificationChannel();
         handler = new Handler(Looper.getMainLooper());

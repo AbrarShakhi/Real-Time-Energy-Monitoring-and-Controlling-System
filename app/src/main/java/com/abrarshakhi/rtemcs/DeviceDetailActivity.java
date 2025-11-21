@@ -11,15 +11,16 @@ import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.icu.text.SimpleDateFormat;
+import android.icu.util.Calendar;
 import android.os.Build;
 import android.os.Bundle;
-import android.util.Log;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.activity.EdgeToEdge;
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
 import androidx.core.graphics.Insets;
@@ -27,6 +28,7 @@ import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
 import com.abrarshakhi.rtemcs.data.DeviceInfoDb;
+import com.abrarshakhi.rtemcs.data.PowerConsumptionHistDb;
 import com.abrarshakhi.rtemcs.model.DeviceInfo;
 import com.abrarshakhi.rtemcs.model.StatRecord;
 import com.github.mikephil.charting.charts.BarChart;
@@ -38,10 +40,8 @@ import com.github.mikephil.charting.data.BarEntry;
 import com.github.mikephil.charting.formatter.IndexAxisValueFormatter;
 import com.google.android.material.materialswitch.MaterialSwitch;
 
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileReader;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
@@ -55,12 +55,13 @@ public class DeviceDetailActivity extends AppCompatActivity {
     double power;
     long startMillis, endMillis;
     BarChart graphView;
-    EditText etStartTime, etEndTime;
+    EditText etEndTime;
     private Button btnBack, btnEdit, btnRefChart;
     private DeviceInfo device;
     private MaterialSwitch swMonitorDevice, swToggleDevice;
     private TextView tvBill, tvPwr, tvEnergy;
     private int lastSentId = 1;
+    private PowerConsumptionHistDb powerConsumptionHistDb;
     private final BroadcastReceiver switchReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
@@ -83,31 +84,15 @@ public class DeviceDetailActivity extends AppCompatActivity {
             power = intent.getDoubleExtra(POWER, 0);
             boolean hasStat = intent.getBooleanExtra(HAS_STAT, false);
             if (hasStat) {
-                Toast.makeText(context, "POWER RECEIVED: " + power, Toast.LENGTH_SHORT).show();
+                Toast.makeText(context, "POWER RECEIVED: " + power, Toast.LENGTH_LONG).show();
             }
-            updateStats(id);
+            refreshChart();
         }
     };
 
     private void updateStats(int id) {
-        String start = etStartTime.getText().toString().trim();
-        String end = etEndTime.getText().toString().trim();
+        List<StatRecord> filtered = powerConsumptionHistDb.getRecordsInRange(id, startMillis, endMillis);
 
-        endMillis = !end.isBlank() ? convertToMillis(end) : System.currentTimeMillis();
-        startMillis = !start.isBlank() ? convertToMillis(start) : 0;
-
-        if (startMillis > endMillis) {
-            Toast.makeText(this, "Invalid time range", Toast.LENGTH_SHORT).show();
-            return;
-        }
-
-        String fileName = "STAT" + id + ".csv";
-
-        // --- Load and filter CSV ---
-        List<StatRecord> csvData = loadCsvData(fileName);
-        List<StatRecord> filtered = filterByRange(csvData, startMillis, endMillis);
-
-        // --- Plot ---
         plotBarChart(filtered);
 
         tvPwr.setText(String.valueOf(power));
@@ -119,58 +104,18 @@ public class DeviceDetailActivity extends AppCompatActivity {
         tvBill.setText(String.format(Locale.US, "৳ %.2f", bill));
     }
 
-    private List<StatRecord> loadCsvData(String fileName) {
-
-        List<StatRecord> data = new ArrayList<>();
-
-        File file = new File(getExternalFilesDir(null), fileName);
-
-        if (!file.exists()) {
-            Log.e("CSV_READ", "File not found: " + file.getAbsolutePath());
-            return data;
-        }
-
-        try (BufferedReader br = new BufferedReader(new FileReader(file))) {
-            String line;
-            boolean skipHeader = true;
-
-            while ((line = br.readLine()) != null) {
-
-                if (skipHeader) {
-                    skipHeader = false;
-                    continue;
-                }
-
-                String[] col = line.split(",");
-
-                try {
-                    long ts = Long.parseLong(col[0]);
-                    double pw = Double.parseDouble(col[1]);
-                    data.add(new StatRecord(ts, pw));
-                } catch (Exception ignore) {
-                }
-            }
-
-        } catch (Exception e) {
-            Log.e("CSV_READ", "Error reading CSV: " + e.getMessage());
-        }
-
-        return data;
-    }
-
     private void plotBarChart(List<StatRecord> list) {
-
         List<BarEntry> entries = new ArrayList<>();
         List<Long> xValues = new ArrayList<>();
 
         for (int i = 0; i < list.size(); i++) {
-            entries.add(new BarEntry(i, (float) list.get(i).powerKW));
-            xValues.add(list.get(i).timestampMs);
+            entries.add(new BarEntry(i, (float) list.get(i).getPowerKW()));
+            xValues.add(list.get(i).getTimestampMs());
         }
 
         BarDataSet dataSet = new BarDataSet(entries, "Power (kW)");
         dataSet.setColor(Color.parseColor("#2196F3"));
-        dataSet.setValueTextSize(10f);
+        dataSet.setDrawValues(false);
 
         BarData data = new BarData(dataSet);
         data.setBarWidth(0.8f);
@@ -178,27 +123,16 @@ public class DeviceDetailActivity extends AppCompatActivity {
         graphView.setData(data);
         graphView.setFitBars(true);
 
-        // --- X Axis ---
-        XAxis xAxis = graphView.getXAxis();
-        xAxis.setPosition(XAxis.XAxisPosition.BOTTOM);
-        xAxis.setGranularity(1f);
-        xAxis.setLabelRotationAngle(45f);
-
-        // Format timestamp → "dd/MM/yyyy HH:mm"
-        xAxis.setValueFormatter(new IndexAxisValueFormatter() {
-            @Override
-            public String getFormattedValue(float value) {
-                int index = (int) value;
-                if (index < 0 || index >= xValues.size()) return "";
-                return new SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.US)
-                    .format(new Date(xValues.get(index)));
-            }
-        });
+        final XAxis xAxis = getXAxis(xValues, entries);
+        xAxis.setLabelCount(entries.size(), true);
 
         // --- Y Axis ---
         YAxis left = graphView.getAxisLeft();
         left.setAxisMinimum(0f); // No negative values
         left.setGranularity(0.1f);
+        left.setDrawLabels(false);  // Hide Y-axis labels
+        left.setDrawGridLines(true); // Keep grid lines
+        left.setDrawAxisLine(true); // Keep axis line
 
         graphView.getAxisRight().setEnabled(false); // Disable right Y axis
 
@@ -210,25 +144,31 @@ public class DeviceDetailActivity extends AppCompatActivity {
         graphView.invalidate();
     }
 
+    @NonNull
+    private XAxis getXAxis(List<Long> xValues, List<BarEntry> entries) {
+        XAxis xAxis = graphView.getXAxis();
+        xAxis.setPosition(XAxis.XAxisPosition.BOTTOM);
+        xAxis.setGranularity(1f);
+        xAxis.setLabelRotationAngle(45f);
 
-    private List<StatRecord> filterByRange(List<StatRecord> list, long startMillis, long endMillis) {
-        List<StatRecord> filtered = new ArrayList<>();
-
-        for (StatRecord r : list) {
-            if (r.timestampMs >= startMillis && r.timestampMs <= endMillis) {
-                filtered.add(r);
+        xAxis.setValueFormatter(new IndexAxisValueFormatter() {
+            @Override
+            public String getFormattedValue(float value) {
+                int index = (int) value;
+                if (index < 0 || index >= xValues.size()) return "";
+                return new SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.US)
+                    .format(new Date(xValues.get(index)));
             }
-        }
+        });
 
-        return filtered;
+        xAxis.setAxisMaximum(entries.size() - 1);
+        return xAxis;
     }
-
 
     private float calculateEnergy(List<StatRecord> csvData, long startMillis, long endMillis) {
         if (csvData == null || csvData.isEmpty()) return 0f;
 
-        // Sort by timestamp for safety
-        csvData.sort((a, b) -> Long.compare(a.timestampMs, b.timestampMs));
+        csvData.sort(Comparator.comparingLong(StatRecord::getTimestampMs));
 
         float totalEnergy = 0f;
 
@@ -237,12 +177,12 @@ public class DeviceDetailActivity extends AppCompatActivity {
 
         for (StatRecord r : csvData) {
 
-            long time = r.timestampMs;
-            double power = r.powerKW;
+            long time = r.getTimestampMs();
+            double power = r.getPowerKW();
 
             // Skip earlier data
             if (time < startMillis) {
-                prevPower = power;     // still update last known power
+                prevPower = power;
                 prevTime = time;
                 continue;
             }
@@ -305,6 +245,7 @@ public class DeviceDetailActivity extends AppCompatActivity {
         });
 
         db = new DeviceInfoDb(this);
+        powerConsumptionHistDb = new PowerConsumptionHistDb(this);
         initViews();
         initButtons();
         initSwitches();
@@ -359,7 +300,7 @@ public class DeviceDetailActivity extends AppCompatActivity {
             device = db.findById(device.getId());
             swMonitorDevice.setChecked(device.isRunning());
             swToggleDevice.setChecked(device.isTurnOn());
-            updateStats(device.getId());
+            refreshChart();
         }
         btnEdit.setEnabled(!swMonitorDevice.isChecked());
         swToggleDevice.setEnabled(swMonitorDevice.isChecked());
@@ -375,7 +316,6 @@ public class DeviceDetailActivity extends AppCompatActivity {
         tvEnergy = findViewById(R.id.tvEnergy);
         graphView = findViewById(R.id.graphView);
         btnRefChart = findViewById(R.id.btnRefChart);
-        etStartTime = findViewById(R.id.etStartTime);
         etEndTime = findViewById(R.id.etEndTime);
     }
 
@@ -384,36 +324,31 @@ public class DeviceDetailActivity extends AppCompatActivity {
         btnEdit.setOnClickListener(v ->
             startActivity(new Intent(DeviceDetailActivity.this, DeviceInfoActivity.class).putExtra(DeviceInfo.ID, device.getId()))
         );
-        etStartTime.setFocusable(false);
-        etStartTime.setClickable(true);
-
         etEndTime.setFocusable(false);
         etEndTime.setClickable(true);
 
-        etStartTime.setOnClickListener(v -> showDateTimePicker(etStartTime));
         etEndTime.setOnClickListener(v -> showDateTimePicker(etEndTime));
 
-        btnRefChart.setOnClickListener(v -> {
-            String start = etStartTime.getText().toString().trim();
-            String end = etEndTime.getText().toString().trim();
-            if (end.isBlank()) {
-                endMillis = System.currentTimeMillis();
-            } else {
-                endMillis = convertToMillis(end);
-            }
-            if (start.isBlank()) {
-                startMillis = 0;
-            } else {
-                startMillis = convertToMillis(start);
-            }
-            updateStats(lastSentId);
-        });
+        btnRefChart.setOnClickListener(v -> refreshChart());
+    }
+
+    private void refreshChart() {
+        String end = etEndTime.getText().toString().trim();
+        if (end.isBlank()) {
+            endMillis = System.currentTimeMillis();
+        } else {
+            endMillis = convertToMillis(end);
+        }
+        if (endMillis == 0) {
+            endMillis = System.currentTimeMillis();
+        }
+        startMillis = endMillis - (60 * 60 * 1000);
+        updateStats(lastSentId);
     }
 
     private long convertToMillis(String dateTime) {
         try {
-            SimpleDateFormat sdf = new SimpleDateFormat("HH:mm dd/MM/yyyy", Locale.getDefault());
-            Date date = sdf.parse(dateTime);
+            Date date = new SimpleDateFormat("HH:mm dd/MM/yyyy", Locale.getDefault()).parse(dateTime);
             return date != null ? date.getTime() : 0;
         } catch (Exception e) {
             return 0;
@@ -422,32 +357,35 @@ public class DeviceDetailActivity extends AppCompatActivity {
 
 
     private void showDateTimePicker(EditText target) {
+        Calendar calendar = Calendar.getInstance();
 
-        // Step 1: Pick a date
+        int currentYear = calendar.get(Calendar.YEAR);
+        int currentMonth = calendar.get(Calendar.MONTH);
+        int currentDay = calendar.get(Calendar.DAY_OF_MONTH);
+        int currentHour = calendar.get(Calendar.HOUR_OF_DAY);
+        int currentMinute = calendar.get(Calendar.MINUTE);
+
         DatePickerDialog datePicker = new DatePickerDialog(
             this,
             (view, year, month, dayOfMonth) -> {
-
-                // Step 2: Pick a time after date is selected
                 TimePickerDialog timePicker = new TimePickerDialog(
                     this,
                     (timeView, hour, minute) -> {
-
-                        // Format date + time
-                        String result = String.format(
+                        target.setText(String.format(
                             Locale.US,
                             "%02d:%02d %02d/%02d/%04d",
                             hour, minute, dayOfMonth, month + 1, year
-                        );
-
-                        target.setText(result);
-
-                    }, 12, 0, true
+                        ));
+                    },
+                    currentHour,
+                    currentMinute,
+                    true
                 );
-
                 timePicker.show();
-
-            }, 2024, 0, 1
+            },
+            currentYear,
+            currentMonth,
+            currentDay
         );
 
         datePicker.show();
@@ -472,7 +410,6 @@ public class DeviceDetailActivity extends AppCompatActivity {
             int eH = data.getIntExtra("endHour", 0);
             int eMin = data.getIntExtra("endMinute", 0);
 
-            // Example: show values
             String msg = "Start: " + sY + "-" + (sM + 1) + "-" + sD + " " + sH + ":" + sMin +
                 "\nEnd: " + eY + "-" + (eM + 1) + "-" + eD + " " + eH + ":" + eMin;
 
