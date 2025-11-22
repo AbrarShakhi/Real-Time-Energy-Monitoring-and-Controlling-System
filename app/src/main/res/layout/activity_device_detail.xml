@@ -42,7 +42,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:background="#EEEEEE"
-            android:hint="hh:mm dd/mm/yyyy"
+            android:hint="hh:mm dd/mm/yWy"
             android:inputType="datetime"
             android:padding="6dp"
             android:textSize="18sp" />
@@ -58,6 +58,31 @@
             android:layout_height="wrap_content"
             android:backgroundTint="@color/black"
             android:text="Reload" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal">
+
+        <Spinner
+            android:id="@+id/spnGraphSelector"
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent" />
+
+        <View
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1" />
+
+        <Button
+            android:id="@+id/btnExport"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="end"
+            android:backgroundTint="@color/black"
+            android:text="Export" />
+
     </LinearLayout>
 
     <com.github.mikephil.charting.charts.BarChart
@@ -90,6 +115,24 @@
                 android:textStyle="bold" />
 
             <TextView
+                android:id="@+id/tvRow1Col1"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Current (A)"
+                android:textSize="16sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/tvRow1Col1"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Voltage (V)"
+                android:textSize="16sp"
+                android:textStyle="bold" />
+
+            <TextView
                 android:id="@+id/tvRow1Col2"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
@@ -104,15 +147,6 @@
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:text="Bill (tk)"
-                android:textSize="16sp"
-                android:textStyle="bold" />
-
-            <TextView
-                android:id="@+id/tvRow1Col4"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="Emission"
                 android:textSize="16sp"
                 android:textStyle="bold" />
         </TableRow>
@@ -132,6 +166,22 @@
                 android:textSize="16sp" />
 
             <TextView
+                android:id="@+id/tvCur"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="--"
+                android:textSize="16sp" />
+
+            <TextView
+                android:id="@+id/tvVolt"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="--"
+                android:textSize="16sp" />
+
+            <TextView
                 android:id="@+id/tvEnergy"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
@@ -141,14 +191,6 @@
 
             <TextView
                 android:id="@+id/tvBill"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="--"
-                android:textSize="16sp" />
-
-            <TextView
-                android:id="@+id/tvCarbEmm"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
@@ -174,15 +216,34 @@
             android:paddingVertical="8dp"
             android:text="Monitor Device" />
 
-        <com.google.android.material.materialswitch.MaterialSwitch
-            android:id="@+id/swToggleDeviceDetail"
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginStart="8dp"
             android:layout_marginEnd="8dp"
-            android:checked="false"
-            android:paddingVertical="8dp"
-            android:text="Toggle Device" />
+            android:orientation="horizontal">
+
+            <EditText
+                android:id="@+id/etScheduleToggler"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:background="#EEEEEE"
+                android:hint="hh:mm dd/mm/yy"
+                android:inputType="datetime"
+                android:padding="6dp"
+                android:textSize="18sp" />
+
+            <com.google.android.material.materialswitch.MaterialSwitch
+                android:id="@+id/swToggleDeviceDetail"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:layout_marginEnd="8dp"
+                android:checked="false"
+                android:paddingVertical="8dp"
+                android:text="Toggle Device" />
+
+        </LinearLayout>
     </LinearLayout>
 
 

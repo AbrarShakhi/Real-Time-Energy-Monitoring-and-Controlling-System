@@ -14,8 +14,14 @@ import android.icu.text.SimpleDateFormat;
 import android.icu.util.Calendar;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
+import android.view.View;
+import android.widget.AdapterView;
+import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -40,26 +46,37 @@ import com.github.mikephil.charting.data.BarEntry;
 import com.github.mikephil.charting.formatter.IndexAxisValueFormatter;
 import com.google.android.material.materialswitch.MaterialSwitch;
 
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileWriter;
+import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class DeviceDetailActivity extends AppCompatActivity {
     public static final String ACTION_UPDATE_SWITCH = "com.abrarshakhi.rtemcs.UPDATE_SWITCH";
     public static final String POWER = "P";
+    public static final String CURRENT = "C";
+    public static final String VOLTAGE = "V";
     public static final String HAS_STAT = "S";
 
     DeviceInfoDb db;
-    double power;
-    long startMillis, endMillis;
-    BarChart graphView;
-    EditText etEndTime;
-    private Button btnBack, btnEdit, btnRefChart;
+    private ExecutorService executorService;
+    private double power, current, voltage;
+    private String showGraphFor;
+    private long startMillis, endMillis;
+    private BarChart graphView;
+    private EditText etEndTime, etScheduleToggler;
+    private Button btnBack, btnEdit, btnRefChart, btnExport;
+    private Spinner spnGraphSelector;
     private DeviceInfo device;
     private MaterialSwitch swMonitorDevice, swToggleDevice;
-    private TextView tvBill, tvPwr, tvEnergy;
+    private TextView tvBill, tvPwr, tvEnergy, tvCur, tvVolt;
     private int lastSentId = 1;
     private PowerConsumptionHistDb powerConsumptionHistDb;
     private final BroadcastReceiver switchReceiver = new BroadcastReceiver() {
@@ -82,6 +99,8 @@ public class DeviceDetailActivity extends AppCompatActivity {
             }
             lastSentId = id;
             power = intent.getDoubleExtra(POWER, 0);
+            current = intent.getDoubleExtra(CURRENT, 0);
+            voltage = intent.getIntExtra(VOLTAGE, 0);
             boolean hasStat = intent.getBooleanExtra(HAS_STAT, false);
             if (hasStat) {
                 Toast.makeText(context, "POWER RECEIVED: " + power, Toast.LENGTH_LONG).show();
@@ -91,13 +110,15 @@ public class DeviceDetailActivity extends AppCompatActivity {
     };
 
     private void updateStats(int id) {
-        List<StatRecord> filtered = powerConsumptionHistDb.getRecordsInRange(id, startMillis, endMillis);
+        List<StatRecord> records = powerConsumptionHistDb.getRecordsInRange(id, startMillis, endMillis);
 
-        plotBarChart(filtered);
+        plotBarChart(records);
 
         tvPwr.setText(String.valueOf(power));
+        tvCur.setText(String.valueOf(current));
+        tvVolt.setText(String.valueOf(voltage));
 
-        float energy = calculateEnergy(filtered, startMillis, endMillis);
+        float energy = calculateEnergy(records, startMillis, endMillis);
         tvEnergy.setText(String.format(Locale.US, "%.3f kWh", energy));
 
         double bill = calculateBill(energy);
@@ -109,11 +130,17 @@ public class DeviceDetailActivity extends AppCompatActivity {
         List<Long> xValues = new ArrayList<>();
 
         for (int i = 0; i < list.size(); i++) {
-            entries.add(new BarEntry(i, (float) list.get(i).getPowerKW()));
+            if (showGraphFor.equals("current")) {
+                entries.add(new BarEntry(i, (float) list.get(i).getCurrentAmp()));
+            } else if (showGraphFor.equals("voltage")) {
+                entries.add(new BarEntry(i, (float) list.get(i).getVoltage()));
+            } else {
+                entries.add(new BarEntry(i, (float) list.get(i).getPowerKW()));
+            }
             xValues.add(list.get(i).getTimestampMs());
         }
 
-        BarDataSet dataSet = new BarDataSet(entries, "Power (kW)");
+        BarDataSet dataSet = new BarDataSet(entries, showGraphFor);
         dataSet.setColor(Color.parseColor("#2196F3"));
         dataSet.setDrawValues(false);
 
@@ -244,14 +271,18 @@ public class DeviceDetailActivity extends AppCompatActivity {
             return insets;
         });
 
+        executorService = Executors.newFixedThreadPool(3);
+
         db = new DeviceInfoDb(this);
         powerConsumptionHistDb = new PowerConsumptionHistDb(this);
         initViews();
         initButtons();
+        initSpinner();
         initSwitches();
         endMillis = System.currentTimeMillis();
         startMillis = 0;
     }
+
 
     @Override
     protected void onStart() {
@@ -304,6 +335,7 @@ public class DeviceDetailActivity extends AppCompatActivity {
         }
         btnEdit.setEnabled(!swMonitorDevice.isChecked());
         swToggleDevice.setEnabled(swMonitorDevice.isChecked());
+        showGraphFor = "power";
     }
 
     private void initViews() {
@@ -317,6 +349,32 @@ public class DeviceDetailActivity extends AppCompatActivity {
         graphView = findViewById(R.id.graphView);
         btnRefChart = findViewById(R.id.btnRefChart);
         etEndTime = findViewById(R.id.etEndTime);
+        btnExport = findViewById(R.id.btnExport);
+        spnGraphSelector = findViewById(R.id.spnGraphSelector);
+        etScheduleToggler = findViewById(R.id.etScheduleToggler);
+        tvCur = findViewById(R.id.tvCur);
+        tvCur = findViewById(R.id.tvCur);
+    }
+
+
+    private void initSpinner() {
+        spnGraphSelector.setAdapter(new ArrayAdapter<>(
+            this,
+            android.R.layout.simple_spinner_dropdown_item,
+            new String[]{"power", "current", "voltage"}
+        ));
+
+        spnGraphSelector.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+                showGraphFor = parent.getItemAtPosition(position).toString();
+            }
+
+            @Override
+            public void onNothingSelected(AdapterView<?> parent) {
+                showGraphFor = "power";
+            }
+        });
     }
 
     private void initButtons() {
@@ -326,10 +384,43 @@ public class DeviceDetailActivity extends AppCompatActivity {
         );
         etEndTime.setFocusable(false);
         etEndTime.setClickable(true);
+        etScheduleToggler.setFocusable(false);
+        etScheduleToggler.setClickable(true);
 
         etEndTime.setOnClickListener(v -> showDateTimePicker(etEndTime));
+        etScheduleToggler.setOnClickListener(v -> showDateTimePicker(etScheduleToggler));
 
         btnRefChart.setOnClickListener(v -> refreshChart());
+
+        btnExport.setOnClickListener(v -> writeToExternalAppStorage(lastSentId));
+    }
+
+    private void writeToExternalAppStorage(int id) {
+        executorService.submit(() -> {
+            String fileName = "STAT" + id + ".csv";
+            File file = new File(getExternalFilesDir(null), fileName);
+            List<StatRecord> records = powerConsumptionHistDb.getAllRecords();
+            try (FileWriter fw = new FileWriter(file, true);
+                 BufferedWriter bw = new BufferedWriter(fw);
+                 PrintWriter out = new PrintWriter(bw)) {
+
+                if (file.length() == 0) {
+                    out.println("Timestamp,PowerKiloWatt,CurrentAmp,Voltage");
+                }
+                for (final StatRecord r : records) {
+                    out.printf("%d,%f,%f,%f\n", r.getTimestampMs(), r.getPowerKW(), r.getCurrentAmp(), r.getVoltage());
+                }
+
+                new Handler(Looper.getMainLooper()).post(() -> {
+                    Toast.makeText(DeviceDetailActivity.this, "Data written successfully!", Toast.LENGTH_SHORT).show();
+                });
+
+            } catch (Exception e) {
+                new Handler(Looper.getMainLooper()).post(() -> {
+                    Toast.makeText(DeviceDetailActivity.this, "Error writing data.", Toast.LENGTH_SHORT).show();
+                });
+            }
+        });
     }
 
     private void refreshChart() {
@@ -431,17 +522,36 @@ public class DeviceDetailActivity extends AppCompatActivity {
             startForegroundService(servIt);
         });
         swToggleDevice.setOnCheckedChangeListener((buttonView, isChecked) -> {
-            if (!device.isRunning()) {
-                return;
+            String end = etScheduleToggler.getText().toString().trim();
+            long whenToToggle;
+            if (!end.isBlank()) {
+                whenToToggle = convertToMillis(end);
+            } else {
+                whenToToggle = 0;
             }
-            Intent servIt = new Intent(DeviceDetailActivity.this, DeviceService.class);
-            if (device == null) return;
-            servIt.putExtra(DeviceInfo.ID, device.getId());
-            servIt.putExtra(DeviceService.STATE,
-                (isChecked)
-                    ? DeviceService.SERVICE_STATE.TURN_ON.ordinal()
-                    : DeviceService.SERVICE_STATE.TURN_OFF.ordinal());
-            startForegroundService(servIt);
+            executorService.submit(() -> {
+                long currentTime = System.currentTimeMillis();
+                if (whenToToggle > currentTime) {
+                    long delay = whenToToggle - currentTime;
+                    try {
+                        Thread.sleep(delay);
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();  // Restore interrupt status
+                        return;
+                    }
+                }
+                if (!device.isRunning()) {
+                    return;
+                }
+                Intent servIt = new Intent(DeviceDetailActivity.this, DeviceService.class);
+                if (device == null) return;
+                servIt.putExtra(DeviceInfo.ID, device.getId());
+                servIt.putExtra(DeviceService.STATE,
+                    (isChecked)
+                        ? DeviceService.SERVICE_STATE.TURN_ON.ordinal()
+                        : DeviceService.SERVICE_STATE.TURN_OFF.ordinal());
+                startForegroundService(servIt);
+            });
         });
     }
 
@@ -455,4 +565,11 @@ public class DeviceDetailActivity extends AppCompatActivity {
         }
     }
 
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        if (executorService != null && !executorService.isShutdown()) {
+            executorService.shutdown();
+        }
+    }
 }

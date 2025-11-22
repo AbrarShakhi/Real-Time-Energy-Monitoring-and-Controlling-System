@@ -8,7 +8,6 @@ import android.content.Intent;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
-import android.util.Log;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
@@ -25,10 +24,6 @@ import com.abrarshakhi.rtemcs.model.TuyaShadowPropertiesResponse;
 import com.abrarshakhi.rtemcs.model.TuyaTokenInfo;
 import com.abrarshakhi.rtemcs.model.TuyaTokenResponse;
 
-import java.io.BufferedWriter;
-import java.io.File;
-import java.io.FileWriter;
-import java.io.PrintWriter;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -276,7 +271,17 @@ public class DeviceService extends Service {
                     }
                     device.setTurnOn(switchState);
                     db.updateDevice(device);
-                    saveToDb(device.getId(), body.getTimestamp(), power / 1000);
+                    power = power / 1000;
+//                    current = current
+//                    voltage = voltage
+                    statsDb.insertRecord(new StatRecord(device.getId(), body.getTimestamp(), power, current, voltage));
+                    sendBroadcast(
+                        intentForBroadcast()
+                            .putExtra(DeviceInfo.ID, device.getId())
+                            .putExtra(DeviceDetailActivity.POWER, power)
+                            .putExtra(DeviceDetailActivity.CURRENT, current)
+                            .putExtra(DeviceDetailActivity.VOLTAGE, voltage)
+                    );
                 } else {
                     stopMonitoring(currDeviceToken.getDevice().getId(), currDeviceToken.getDevice());
                 }
@@ -289,36 +294,6 @@ public class DeviceService extends Service {
                 Toast.makeText(DeviceService.this, "Network Error", Toast.LENGTH_SHORT).show();
             }
         });
-    }
-
-    private void saveToDb(int id, long timestamp, double power) {
-        statsDb.insertRecord(new StatRecord(id, timestamp, power));
-    }
-
-    private void writeToExternalAppStorage(int id, long timestamp, double powerKiloWatt) {
-        String fileName = "STAT" + id + ".csv";
-        File file = new File(getExternalFilesDir(null), fileName);
-
-        try (FileWriter fw = new FileWriter(file, true);
-             BufferedWriter bw = new BufferedWriter(fw);
-             PrintWriter out = new PrintWriter(bw)) {
-
-            if (file.length() == 0) {
-                out.println("Timestamp,PowerKiloWatt");
-            }
-
-            out.printf("%d,%f%n", timestamp, powerKiloWatt);
-
-        } catch (Exception e) {
-            Log.e("CSV_WRITE", "Error writing CSV: " + e.getMessage());
-        }
-
-        sendBroadcast(
-            intentForBroadcast()
-                .putExtra(DeviceInfo.ID, id)
-                .putExtra(DeviceDetailActivity.POWER, powerKiloWatt)
-                .putExtra(DeviceDetailActivity.HAS_STAT, true)
-        );
     }
 
 

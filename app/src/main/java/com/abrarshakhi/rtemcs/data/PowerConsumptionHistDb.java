@@ -19,6 +19,8 @@ public class PowerConsumptionHistDb extends SQLiteOpenHelper {
     public static final String COL_ID = "_id";
     public static final String COL_TIMESTAMP = "timestamp_ms";
     public static final String COL_POWER = "power_kw";
+    public static final String COL_CURRENT = "current_apm";
+    public static final String COL_VOLTAGE = "voltage_v";
     private static final String DB_NAME = "power_hist.db";
     private static final int DB_VERSION = 1;
 
@@ -33,6 +35,8 @@ public class PowerConsumptionHistDb extends SQLiteOpenHelper {
                 COL_ID + " INTEGER NOT NULL, " +
                 COL_TIMESTAMP + " INTEGER NOT NULL, " +
                 COL_POWER + " REAL NOT NULL, " +
+                COL_CURRENT + " REAL NOT NULL, " +
+                COL_VOLTAGE + " REAL NOT NULL, " +
                 "PRIMARY KEY(" + COL_ID + ", " + COL_TIMESTAMP + ")" +
                 ");";
 
@@ -79,8 +83,10 @@ public class PowerConsumptionHistDb extends SQLiteOpenHelper {
                 int id = cursor.getInt(cursor.getColumnIndexOrThrow(COL_ID));
                 long ts = cursor.getLong(cursor.getColumnIndexOrThrow(COL_TIMESTAMP));
                 double power = cursor.getDouble(cursor.getColumnIndexOrThrow(COL_POWER));
+                double current = cursor.getDouble(cursor.getColumnIndexOrThrow(COL_CURRENT));
+                double voltage = cursor.getDouble(cursor.getColumnIndexOrThrow(COL_VOLTAGE));
 
-                list.add(new StatRecord(id, ts, power));
+                list.add(new StatRecord(id, ts, power, current, voltage));
             } while (cursor.moveToNext());
         }
         cursor.close();
@@ -130,8 +136,10 @@ public class PowerConsumptionHistDb extends SQLiteOpenHelper {
                 int recordId = cursor.getInt(cursor.getColumnIndexOrThrow(COL_ID));
                 long ts = cursor.getLong(cursor.getColumnIndexOrThrow(COL_TIMESTAMP));
                 double power = cursor.getDouble(cursor.getColumnIndexOrThrow(COL_POWER));
+                double current = cursor.getDouble(cursor.getColumnIndexOrThrow(COL_CURRENT));
+                double voltage = cursor.getDouble(cursor.getColumnIndexOrThrow(COL_VOLTAGE));
 
-                list.add(new StatRecord(recordId, ts, power));
+                list.add(new StatRecord(id, ts, power, current, voltage));
             } while (cursor.moveToNext());
         }
         cursor.close();
