@@ -1,14 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/main"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:background="@color/white"
     android:orientation="vertical"
     tools:context=".DeviceDetailActivity"
     tools:ignore="HardcodedText">
 
+    <!-- Toolbar -->
     <TextView
         android:id="@+id/tvAppBarMain"
         android:layout_width="match_parent"
@@ -18,260 +20,228 @@
         android:padding="7dp"
         android:paddingStart="14dp"
         android:paddingEnd="14dp"
-        android:text="Device Details"
+        android:text="Home"
         android:textColor="@color/white"
         android:textSize="25sp"
         android:textStyle="bold"
         app:layout_constraintTop_toTopOf="parent" />
 
-
+    <!-- Time Filter Section -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
-        android:padding="5dp">
+        android:padding="10dp">
 
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Chart till: "
-            android:textSize="18sp" />
-
-        <EditText
-            android:id="@+id/etEndTime"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:background="#EEEEEE"
-            android:hint="hh:mm dd/mm/yy"
-            android:inputType="datetime"
-            android:padding="6dp"
-            android:textSize="18sp" />
-
-        <View
+        <com.google.android.material.textfield.TextInputLayout
             android:layout_width="0dp"
-            android:layout_height="match_parent"
-            android:layout_weight="1" />
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:hint="Start Time"
+            app:startIconDrawable="@drawable/ic_time">
 
-        <Button
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/etStartTime"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:inputType="datetime" />
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <com.google.android.material.textfield.TextInputLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="10dp"
+            android:layout_weight="1"
+            android:hint="End Time"
+            app:startIconDrawable="@drawable/ic_time">
+
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/etEndTime"
+                android:layout_height="wrap_content"
+                android:layout_width="wrap_content"
+                android:inputType="datetime" />
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <ImageButton
             android:id="@+id/btnRefChart"
             android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:backgroundTint="@color/black"
-            android:text="Reload" />
+            android:layout_height="match_parent"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:padding="8dp"
+            android:src="@drawable/ic_reload" />
     </LinearLayout>
 
+    <!-- Schedule Section -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="horizontal">
+        android:orientation="horizontal"
+        android:padding="10dp">
+
+        <com.google.android.material.textfield.TextInputLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:hint="Schedule (ON/OFF)"
+            app:startIconDrawable="@drawable/ic_on_off">
+
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/etScheduleToggler"
+                android:layout_height="wrap_content"
+                android:layout_width="wrap_content"
+                android:inputType="text" />
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <ImageButton
+            android:id="@+id/btnToggler"
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:padding="8dp"
+            android:src="@drawable/ic_toggle" />
 
         <Spinner
             android:id="@+id/spnGraphSelector"
             android:layout_width="wrap_content"
-            android:layout_height="match_parent" />
-
-        <View
-            android:layout_width="0dp"
             android:layout_height="match_parent"
-            android:layout_weight="1" />
+            android:layout_marginStart="15dp" />
 
-        <Button
+        <ImageButton
             android:id="@+id/btnExport"
             android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_gravity="end"
-            android:backgroundTint="@color/black"
-            android:text="Export" />
-
+            android:layout_height="match_parent"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:padding="8dp"
+            android:src="@drawable/ic_export" />
     </LinearLayout>
 
-    <com.github.mikephil.charting.charts.BarChart
-        android:id="@+id/graphView"
+    <!-- Chart Card -->
+    <androidx.cardview.widget.CardView
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_margin="5dp"
-        android:layout_weight="1" />
+        android:layout_margin="12dp"
+        android:layout_weight="1"
+        app:cardCornerRadius="12dp"
+        app:cardElevation="3dp">
 
-    <TableLayout
-        android:id="@+id/tlInfo"
+        <com.github.mikephil.charting.charts.BarChart
+            android:id="@+id/graphView"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent" />
+    </androidx.cardview.widget.CardView>
+
+    <!-- Data Table -->
+    <androidx.cardview.widget.CardView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:padding="5dp"
-        android:stretchColumns="1">
+        android:layout_margin="12dp"
+        app:cardCornerRadius="12dp"
+        app:cardElevation="3dp">
 
-        <!-- Row 1 -->
-        <TableRow
+        <TableLayout
+            android:id="@+id/tlInfo"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:padding="6dp">
+            android:padding="10dp"
+            android:stretchColumns="1">
 
-            <TextView
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="Power (kW)"
-                android:textSize="16sp"
-                android:textStyle="bold" />
+            <TableRow android:padding="6dp">
 
-            <TextView
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="Current (A)"
-                android:textSize="16sp"
-                android:textStyle="bold" />
+                <TextView
+                    style="@style/TableHeader"
+                    android:text="Power (kW)" />
 
-            <TextView
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="Voltage (V)"
-                android:textSize="16sp"
-                android:textStyle="bold" />
+                <TextView
+                    style="@style/TableHeader"
+                    android:text="Current (A)" />
 
-            <TextView
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="Energy (unit)"
-                android:textSize="16sp"
-                android:textStyle="bold" />
+                <TextView
+                    style="@style/TableHeader"
+                    android:text="Voltage (V)" />
 
-            <TextView
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="Bill (tk)"
-                android:textSize="16sp"
-                android:textStyle="bold" />
-        </TableRow>
+                <TextView
+                    style="@style/TableHeader"
+                    android:text="Energy (unit)" />
 
-        <!-- Row 2 -->
-        <TableRow
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:padding="6dp">
+                <TextView
+                    style="@style/TableHeader"
+                    android:text="Bill (tk)" />
+            </TableRow>
 
-            <TextView
-                android:id="@+id/tvPwr"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="--"
-                android:textSize="16sp" />
+            <TableRow android:padding="6dp">
 
-            <TextView
-                android:id="@+id/tvCur"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="--"
-                android:textSize="16sp" />
+                <TextView
+                    android:id="@+id/tvPwr"
+                    style="@style/TableValue" />
 
-            <TextView
-                android:id="@+id/tvVolt"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="--"
-                android:textSize="16sp" />
+                <TextView
+                    android:id="@+id/tvCur"
+                    style="@style/TableValue" />
 
-            <TextView
-                android:id="@+id/tvEnergy"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="--"
-                android:textSize="16sp" />
+                <TextView
+                    android:id="@+id/tvVolt"
+                    style="@style/TableValue" />
 
-            <TextView
-                android:id="@+id/tvBill"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="--"
-                android:textSize="16sp" />
-        </TableRow>
+                <TextView
+                    android:id="@+id/tvEnergy"
+                    style="@style/TableValue" />
 
-    </TableLayout>
+                <TextView
+                    android:id="@+id/tvBill"
+                    style="@style/TableValue" />
+            </TableRow>
 
+        </TableLayout>
+    </androidx.cardview.widget.CardView>
+
+    <!-- Switch Section -->
     <LinearLayout
         android:id="@+id/llSwitches"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="vertical">
+        android:orientation="vertical"
+        android:padding="12dp">
 
         <com.google.android.material.materialswitch.MaterialSwitch
             android:id="@+id/swMonitorDeviceDetail"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginStart="8dp"
-            android:layout_marginEnd="8dp"
-            android:checked="false"
-            android:paddingVertical="8dp"
             android:text="Monitor Device" />
 
-        <LinearLayout
+        <com.google.android.material.materialswitch.MaterialSwitch
+            android:id="@+id/swToggleDeviceDetail"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginStart="8dp"
-            android:layout_marginEnd="8dp"
-            android:orientation="horizontal">
-
-            <EditText
-                android:id="@+id/etScheduleToggler"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:background="#EEEEEE"
-                android:hint="hh:mm dd/mm/yy"
-                android:inputType="datetime"
-                android:padding="6dp"
-                android:textSize="18sp" />
-
-            <com.google.android.material.materialswitch.MaterialSwitch
-                android:id="@+id/swToggleDeviceDetail"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="8dp"
-                android:layout_marginEnd="8dp"
-                android:checked="false"
-                android:paddingVertical="8dp"
-                android:text="Toggle Device" />
-
-        </LinearLayout>
+            android:layout_marginTop="8dp"
+            android:text="Toggle Device" />
     </LinearLayout>
 
-
+    <!-- Bottom Buttons -->
     <LinearLayout
         android:id="@+id/llBottomButtonDetails"
-        style="?android:attr/buttonBarStyle"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="horizontal">
+        android:orientation="horizontal"
+        android:padding="10dp">
 
-        <Button
+        <com.google.android.material.button.MaterialButton
             android:id="@+id/btnBackDetail"
-            style="?android:attr/buttonBarButtonStyle"
             android:layout_width="0dp"
-            android:layout_height="match_parent"
-            android:layout_marginStart="8dp"
-            android:layout_marginEnd="4dp"
+            android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:backgroundTint="@color/black"
             android:text="Back"
-            android:textColor="@color/white" />
+            android:textColor="@color/white"
+            app:backgroundTint="@color/black" />
 
-        <Button
+        <com.google.android.material.button.MaterialButton
             android:id="@+id/btnEditDetail"
-            style="?android:attr/buttonBarButtonStyle"
             android:layout_width="0dp"
-            android:layout_height="match_parent"
-            android:layout_marginStart="4dp"
-            android:layout_marginEnd="8dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="10dp"
             android:layout_weight="1"
-            android:backgroundTint="@color/black"
             android:text="Edit Device Info"
-            android:textColor="@color/white" />
-
+            android:textColor="@color/white"
+            app:backgroundTint="@color/black" />
     </LinearLayout>
+
 </LinearLayout>

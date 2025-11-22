@@ -21,6 +21,7 @@ import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.ImageButton;
 import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -45,6 +46,7 @@ import com.github.mikephil.charting.data.BarDataSet;
 import com.github.mikephil.charting.data.BarEntry;
 import com.github.mikephil.charting.formatter.IndexAxisValueFormatter;
 import com.google.android.material.materialswitch.MaterialSwitch;
+import com.google.android.material.textfield.TextInputEditText;
 
 import java.io.BufferedWriter;
 import java.io.File;
@@ -55,6 +57,7 @@ import java.util.Comparator;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -71,8 +74,9 @@ public class DeviceDetailActivity extends AppCompatActivity {
     private String showGraphFor;
     private long startMillis, endMillis;
     private BarChart graphView;
-    private EditText etEndTime, etScheduleToggler;
-    private Button btnBack, btnEdit, btnRefChart, btnExport;
+    private TextInputEditText etEndTime, etStartTime, etScheduleToggler;
+    private Button btnBack, btnEdit;
+    private ImageButton btnRefChart, btnExport, btnToggler;
     private Spinner spnGraphSelector;
     private DeviceInfo device;
     private MaterialSwitch swMonitorDevice, swToggleDevice;
@@ -347,14 +351,15 @@ public class DeviceDetailActivity extends AppCompatActivity {
         tvEnergy = findViewById(R.id.tvEnergy);
         graphView = findViewById(R.id.graphView);
         btnRefChart = findViewById(R.id.btnRefChart);
+        etStartTime = findViewById(R.id.etStartTime);
         etEndTime = findViewById(R.id.etEndTime);
         btnExport = findViewById(R.id.btnExport);
         spnGraphSelector = findViewById(R.id.spnGraphSelector);
         etScheduleToggler = findViewById(R.id.etScheduleToggler);
         tvCur = findViewById(R.id.tvCur);
         tvVolt = findViewById(R.id.tvVolt);
+        btnToggler = findViewById(R.id.btnToggler);
     }
-
 
     private void initSpinner() {
         spnGraphSelector.setAdapter(new ArrayAdapter<>(
@@ -387,11 +392,33 @@ public class DeviceDetailActivity extends AppCompatActivity {
         etScheduleToggler.setClickable(true);
 
         etEndTime.setOnClickListener(v -> showDateTimePicker(etEndTime));
+        etStartTime.setOnClickListener(v -> showDateTimePicker(etStartTime));
         etScheduleToggler.setOnClickListener(v -> showDateTimePicker(etScheduleToggler));
 
         btnRefChart.setOnClickListener(v -> refreshChart());
 
         btnExport.setOnClickListener(v -> writeToExternalAppStorage(lastSentId));
+
+        btnToggler.setOnClickListener(v -> scheduleOnOff());
+    }
+
+    private void scheduleOnOff() {
+        String time = Objects.requireNonNull(etScheduleToggler.getText()).toString();
+        long whenToToggle = convertToMillis(time);
+        executorService.submit(() -> {
+                long currentTime = System.currentTimeMillis();
+                if (whenToToggle > currentTime) {
+                    long delay = whenToToggle - currentTime;
+                    try {
+                        Thread.sleep(delay);
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        return;
+                    }
+                }
+                toggleDevice(!device.isTurnOn());
+            }
+        );
     }
 
     private void writeToExternalAppStorage(int id) {
@@ -423,7 +450,8 @@ public class DeviceDetailActivity extends AppCompatActivity {
     }
 
     private void refreshChart() {
-        String end = etEndTime.getText().toString().trim();
+        String end = Objects.requireNonNull(etEndTime.getText()).toString().trim();
+        String start = Objects.requireNonNull(etStartTime.getText()).toString().trim();
         if (end.isBlank()) {
             endMillis = System.currentTimeMillis();
         } else {
@@ -432,7 +460,14 @@ public class DeviceDetailActivity extends AppCompatActivity {
         if (endMillis == 0) {
             endMillis = System.currentTimeMillis();
         }
-        startMillis = endMillis - (60 * 60 * 1000);
+        if (start.isBlank()) {
+            endMillis = 0;
+        } else {
+            endMillis = convertToMillis(end);
+        }
+        if (startMillis == 0) {
+            startMillis = endMillis - (60 * 60 * 1000);
+        }
         updateStats(lastSentId);
     }
 
@@ -521,37 +556,22 @@ public class DeviceDetailActivity extends AppCompatActivity {
             startForegroundService(servIt);
         });
         swToggleDevice.setOnCheckedChangeListener((buttonView, isChecked) -> {
-            String end = etScheduleToggler.getText().toString().trim();
-            long whenToToggle;
-            if (!end.isBlank()) {
-                whenToToggle = convertToMillis(end);
-            } else {
-                whenToToggle = 0;
-            }
-            executorService.submit(() -> {
-                long currentTime = System.currentTimeMillis();
-                if (whenToToggle > currentTime) {
-                    long delay = whenToToggle - currentTime;
-                    try {
-                        Thread.sleep(delay);
-                    } catch (InterruptedException e) {
-                        Thread.currentThread().interrupt();
-                        return;
-                    }
-                }
-                if (!device.isRunning()) {
-                    return;
-                }
-                Intent servIt = new Intent(DeviceDetailActivity.this, DeviceService.class);
-                if (device == null) return;
-                servIt.putExtra(DeviceInfo.ID, device.getId());
-                servIt.putExtra(DeviceService.STATE,
-                    (isChecked)
-                        ? DeviceService.SERVICE_STATE.TURN_ON.ordinal()
-                        : DeviceService.SERVICE_STATE.TURN_OFF.ordinal());
-                startForegroundService(servIt);
-            });
+            toggleDevice(isChecked);
         });
+    }
+
+    private void toggleDevice(boolean isChecked) {
+        if (!device.isRunning()) {
+            return;
+        }
+        Intent servIt = new Intent(DeviceDetailActivity.this, DeviceService.class);
+        if (device == null) return;
+        servIt.putExtra(DeviceInfo.ID, device.getId());
+        servIt.putExtra(DeviceService.STATE,
+            isChecked
+                ? DeviceService.SERVICE_STATE.TURN_ON.ordinal()
+                : DeviceService.SERVICE_STATE.TURN_OFF.ordinal());
+        startForegroundService(servIt);
     }
 
     private void checkPermission() {
