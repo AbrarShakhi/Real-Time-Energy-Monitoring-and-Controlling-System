@@ -100,7 +100,7 @@ public class DeviceDetailActivity extends AppCompatActivity {
             lastSentId = id;
             power = intent.getDoubleExtra(POWER, 0);
             current = intent.getDoubleExtra(CURRENT, 0);
-            voltage = intent.getIntExtra(VOLTAGE, 0);
+            voltage = intent.getDoubleExtra(VOLTAGE, 0);
             boolean hasStat = intent.getBooleanExtra(HAS_STAT, false);
             if (hasStat) {
                 Toast.makeText(context, "POWER RECEIVED: " + power, Toast.LENGTH_LONG).show();
@@ -272,7 +272,7 @@ public class DeviceDetailActivity extends AppCompatActivity {
         });
 
         executorService = Executors.newFixedThreadPool(3);
-
+        showGraphFor = "power";
         db = new DeviceInfoDb(this);
         powerConsumptionHistDb = new PowerConsumptionHistDb(this);
         initViews();
@@ -335,7 +335,6 @@ public class DeviceDetailActivity extends AppCompatActivity {
         }
         btnEdit.setEnabled(!swMonitorDevice.isChecked());
         swToggleDevice.setEnabled(swMonitorDevice.isChecked());
-        showGraphFor = "power";
     }
 
     private void initViews() {
@@ -353,7 +352,7 @@ public class DeviceDetailActivity extends AppCompatActivity {
         spnGraphSelector = findViewById(R.id.spnGraphSelector);
         etScheduleToggler = findViewById(R.id.etScheduleToggler);
         tvCur = findViewById(R.id.tvCur);
-        tvCur = findViewById(R.id.tvCur);
+        tvVolt = findViewById(R.id.tvVolt);
     }
 
 
@@ -536,7 +535,7 @@ public class DeviceDetailActivity extends AppCompatActivity {
                     try {
                         Thread.sleep(delay);
                     } catch (InterruptedException e) {
-                        Thread.currentThread().interrupt();  // Restore interrupt status
+                        Thread.currentThread().interrupt();
                         return;
                     }
                 }

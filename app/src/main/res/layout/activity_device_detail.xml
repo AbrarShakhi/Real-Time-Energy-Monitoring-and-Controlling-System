@@ -34,7 +34,7 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="View chart till: "
+            android:text="Chart till: "
             android:textSize="18sp" />
 
         <EditText
@@ -42,7 +42,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:background="#EEEEEE"
-            android:hint="hh:mm dd/mm/yWy"
+            android:hint="hh:mm dd/mm/yy"
             android:inputType="datetime"
             android:padding="6dp"
             android:textSize="18sp" />
@@ -106,7 +106,6 @@
             android:padding="6dp">
 
             <TextView
-                android:id="@+id/tvRow1Col1"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
@@ -115,7 +114,6 @@
                 android:textStyle="bold" />
 
             <TextView
-                android:id="@+id/tvRow1Col1"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
@@ -124,7 +122,6 @@
                 android:textStyle="bold" />
 
             <TextView
-                android:id="@+id/tvRow1Col1"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
@@ -133,7 +130,6 @@
                 android:textStyle="bold" />
 
             <TextView
-                android:id="@+id/tvRow1Col2"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
@@ -142,7 +138,6 @@
                 android:textStyle="bold" />
 
             <TextView
-                android:id="@+id/tvRow1Col3"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"

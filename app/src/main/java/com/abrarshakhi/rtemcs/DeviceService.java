@@ -25,6 +25,7 @@ import com.abrarshakhi.rtemcs.model.TuyaTokenInfo;
 import com.abrarshakhi.rtemcs.model.TuyaTokenResponse;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import retrofit2.Call;
@@ -223,10 +224,10 @@ public class DeviceService extends Service {
     private void pullShadowPropertiesAndWrite(@NonNull TuyaDeviceToken currDeviceToken) {
         TuyaOpenApi api = TuyaOpenApi.getInstance();
         api.shadowProperties(currDeviceToken.getDevice(), currDeviceToken.getToken(), new Callback<>() {
-            private static final String SWITCH = "switch";
-            private static final String VOLTAGE = "output_voltage";
-            private static final String CURRENT = "output_current";
-            private static final String POWER = "output_power";
+            private static final String SWITCH = "switch_1";
+            private static final String VOLTAGE = "cur_voltage";
+            private static final String CURRENT = "cur_current";
+            private static final String POWER = "cur_power";
 
             private boolean toBoolean(Object value) {
                 if (value instanceof Boolean) return (Boolean) value;
@@ -251,7 +252,8 @@ public class DeviceService extends Service {
                     boolean switchState = device.isTurnOn();
                     double power = 0, voltage = 0, current = 0;
                     try {
-                        for (var prop : body.getResult().getProperties()) {
+                        List<TuyaShadowPropertiesResponse.Property> properties = body.getResult().getProperties();
+                        for (var prop : properties) {
                             switch (prop.getCode()) {
                                 case SWITCH:
                                     switchState = toBoolean(prop.getValue());
@@ -272,15 +274,17 @@ public class DeviceService extends Service {
                     device.setTurnOn(switchState);
                     db.updateDevice(device);
                     power = power / 1000;
-//                    current = current
-//                    voltage = voltage
-                    statsDb.insertRecord(new StatRecord(device.getId(), body.getTimestamp(), power, current, voltage));
+                    current = current / 1000;
+                    voltage = voltage / 10;
+                    StatRecord record =new StatRecord(device.getId(), body.getTimestamp(), power, current, voltage);
+                    statsDb.insertRecord(record);
                     sendBroadcast(
                         intentForBroadcast()
                             .putExtra(DeviceInfo.ID, device.getId())
                             .putExtra(DeviceDetailActivity.POWER, power)
                             .putExtra(DeviceDetailActivity.CURRENT, current)
                             .putExtra(DeviceDetailActivity.VOLTAGE, voltage)
+                            .putExtra(DeviceDetailActivity.HAS_STAT, true)
                     );
                 } else {
                     stopMonitoring(currDeviceToken.getDevice().getId(), currDeviceToken.getDevice());

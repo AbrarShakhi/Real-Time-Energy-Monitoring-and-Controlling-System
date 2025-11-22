@@ -58,6 +58,8 @@ public class PowerConsumptionHistDb extends SQLiteOpenHelper {
         values.put(COL_ID, record.getId());
         values.put(COL_TIMESTAMP, record.getTimestampMs());
         values.put(COL_POWER, record.getPowerKW());
+        values.put(COL_CURRENT, record.getCurrentAmp());
+        values.put(COL_VOLTAGE, record.getVoltage());
 
         db.insert(TABLE_STATS, null, values);
     }

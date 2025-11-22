@@ -120,7 +120,7 @@ public class TuyaOpenApi {
         String path = "/v1.0/iot-03/devices/" + device.getDeviceId() + "/commands";
 
         try {
-            TuyaCommand.Command cmd = new TuyaCommand.Command("switch", state);
+            TuyaCommand.Command cmd = new TuyaCommand.Command("switch_1", state);
             TuyaCommand body = new TuyaCommand(Collections.singletonList(cmd));
 
             JSONObject bodyJson = buildCommandBody(body);
