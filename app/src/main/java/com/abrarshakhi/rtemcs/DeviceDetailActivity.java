@@ -390,6 +390,8 @@ public class DeviceDetailActivity extends AppCompatActivity {
         etEndTime.setClickable(true);
         etScheduleToggler.setFocusable(false);
         etScheduleToggler.setClickable(true);
+        etStartTime.setFocusable(false);
+        etStartTime.setClickable(true);
 
         etEndTime.setOnClickListener(v -> showDateTimePicker(etEndTime));
         etStartTime.setOnClickListener(v -> showDateTimePicker(etStartTime));
