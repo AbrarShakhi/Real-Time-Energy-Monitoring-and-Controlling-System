@@ -21,6 +21,13 @@ public class DeviceInfoActivity extends AppCompatActivity {
     private Button btnCancel, btnSave;
     boolean isNew;
 
+    /**
+     *
+     * @param savedInstanceState If the activity is being re-initialized after
+     *     previously being shut down then this Bundle contains the data it most
+     *     recently supplied in {@link #onSaveInstanceState}.  <b><i>Note: Otherwise it is null.</i></b>
+     *
+     */
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -39,6 +46,9 @@ public class DeviceInfoActivity extends AppCompatActivity {
         initButtons();
     }
 
+    /**
+     * This function is called after drawing to the keyboard.
+     */
     @Override
     protected void onStart() {
         super.onStart();
@@ -59,6 +69,9 @@ public class DeviceInfoActivity extends AppCompatActivity {
         etAccessSecret.setText(device.getAccessSecret());
     }
 
+    /**
+     * Initializes views.
+     */
     private void initViews() {
         etDeviceName = findViewById(R.id.etDeviceNameAddDevice);
         etDeviceId = findViewById(R.id.etDeviceIdAddDevice);
@@ -70,6 +83,9 @@ public class DeviceInfoActivity extends AppCompatActivity {
 
     }
 
+    /**
+     * Initializes the button listener.
+     */
     private void initButtons() {
         btnCancel.setOnClickListener(v -> finish());
         btnSave.setOnClickListener(v -> {
@@ -91,6 +107,9 @@ public class DeviceInfoActivity extends AppCompatActivity {
         });
     }
 
+    /**
+     * setup a new device.
+     */
     private void editDeviceInDb(int id, String deviceName, String deviceId, String accessId, String accessSecret) {
         DeviceInfo device = db.findById(id);
         if (device == null) {
@@ -111,7 +130,13 @@ public class DeviceInfoActivity extends AppCompatActivity {
         }
     }
 
-
+    /**
+     * inserts a new device information.
+     * @param deviceName
+     * @param deviceId
+     * @param accessId
+     * @param accessSecret
+     */
     private void insertDeviceToDb(String deviceName, String deviceId, String accessId, String accessSecret) {
         if (db.insertDevice(
             new DeviceInfo.Builder()

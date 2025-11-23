@@ -83,6 +83,10 @@ public class DeviceDetailActivity extends AppCompatActivity {
     private TextView tvBill, tvPwr, tvEnergy, tvCur, tvVolt;
     private int lastSentId = 1;
     private PowerConsumptionHistDb powerConsumptionHistDb;
+
+    /**
+     * Broadcast receiver. If foreground service broadcast a power, current, information then it receives it.
+     */
     private final BroadcastReceiver switchReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
@@ -101,6 +105,7 @@ public class DeviceDetailActivity extends AppCompatActivity {
             if (swToggleDevice.isChecked() != isTurnOn) {
                 swToggleDevice.setChecked(isTurnOn);
             }
+            // Load the payload.
             lastSentId = id;
             power = intent.getDoubleExtra(POWER, 0);
             current = intent.getDoubleExtra(CURRENT, 0);
@@ -109,10 +114,15 @@ public class DeviceDetailActivity extends AppCompatActivity {
             if (hasStat) {
                 Toast.makeText(context, "POWER RECEIVED: " + power, Toast.LENGTH_LONG).show();
             }
+            // refresh the chart when receives a broadcast
             refreshChart();
         }
     };
 
+    /**
+     * Update graphs.
+     * @param id
+     */
     private void updateStats(int id) {
         List<StatRecord> records = powerConsumptionHistDb.getRecordsInRange(id, startMillis, endMillis);
 
@@ -123,12 +133,16 @@ public class DeviceDetailActivity extends AppCompatActivity {
         tvVolt.setText(String.valueOf(voltage));
 
         float energy = calculateEnergy(records, startMillis, endMillis);
-        tvEnergy.setText(String.format(Locale.US, "%.3f kWh", energy));
+        tvEnergy.setText(String.format(Locale.US, "%.2f", energy));
 
         double bill = calculateBill(energy);
         tvBill.setText(String.format(Locale.US, "৳ %.2f", bill));
     }
 
+    /**
+     * function that plots the graph
+     * @param list
+     */
     private void plotBarChart(List<StatRecord> list) {
         List<BarEntry> entries = new ArrayList<>();
         List<Long> xValues = new ArrayList<>();
@@ -161,7 +175,7 @@ public class DeviceDetailActivity extends AppCompatActivity {
         YAxis left = graphView.getAxisLeft();
         left.setAxisMinimum(0f); // No negative values
         left.setGranularity(0.1f);
-        left.setDrawLabels(false);  // Hide Y-axis labels
+        left.setDrawLabels(true);  // Hide Y-axis labels
         left.setDrawGridLines(true); // Keep grid lines
         left.setDrawAxisLine(true); // Keep axis line
 
@@ -175,6 +189,12 @@ public class DeviceDetailActivity extends AppCompatActivity {
         graphView.invalidate();
     }
 
+    /**
+     * Unitils function that returns graph X axis.
+     * @param xValues
+     * @param entries
+     * @return
+     */
     @NonNull
     private XAxis getXAxis(List<Long> xValues, List<BarEntry> entries) {
         XAxis xAxis = graphView.getXAxis();
@@ -187,7 +207,7 @@ public class DeviceDetailActivity extends AppCompatActivity {
             public String getFormattedValue(float value) {
                 int index = (int) value;
                 if (index < 0 || index >= xValues.size()) return "";
-                return new SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.US)
+                return new SimpleDateFormat("dd/MM HH:mm", Locale.US)
                     .format(new Date(xValues.get(index)));
             }
         });
@@ -196,6 +216,13 @@ public class DeviceDetailActivity extends AppCompatActivity {
         return xAxis;
     }
 
+    /**
+     * calculates energy.
+     * @param csvData
+     * @param startMillis
+     * @param endMillis
+     * @return
+     */
     private float calculateEnergy(List<StatRecord> csvData, long startMillis, long endMillis) {
         if (csvData == null || csvData.isEmpty()) return 0f;
 
@@ -241,7 +268,11 @@ public class DeviceDetailActivity extends AppCompatActivity {
         return totalEnergy; // kWh
     }
 
-
+    /**
+     * Bill calculation function.It uses bangladesh 2025 electricity billing policy.
+     * @param energyKWh
+     * @return
+     */
     private double calculateBill(float energyKWh) {
         double bill;
 

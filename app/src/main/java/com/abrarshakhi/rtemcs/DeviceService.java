@@ -46,6 +46,17 @@ public class DeviceService extends Service {
         return null;
     }
 
+    /**
+     *
+     * @param intent  The Intent supplied to {@link android.content.Context#startService},
+     *                as given.  This may be null if the service is being restarted after
+     *                its process has gone away, and it had previously returned anything
+     *                except {@link #START_STICKY_COMPATIBILITY}.
+     * @param flags   Additional data about this start request.
+     * @param startId A unique integer representing this specific request to
+     *                start.  Use with {@link #stopSelfResult(int)}.
+     * @return
+     */
     @Override
     public int onStartCommand(@NonNull Intent intent, int flags, int startId) {
         final Notification notification = getNotification();
@@ -59,10 +70,20 @@ public class DeviceService extends Service {
         return START_STICKY;
     }
 
+    /**
+     * Chooses what operation to start. It can start monitoring, stop monitoring, toggle device.
+     *
+     * @param state
+     * @param id
+     * @param currDevice
+     */
     private void pickCommand(SERVICE_STATE state, int id, DeviceInfo currDevice) {
         if (state == SERVICE_STATE.START_MONITORING) {
             TuyaDeviceToken.fetch(currDevice, new TuyaDeviceToken.Listener() {
                 @Override
+                /**
+                 * If the request is successful. than means connected to tuya account
+                 */
                 public void onSuccess(TuyaDeviceToken token) {
                     deviceTokens.put(id, token);
                     db.updateDevice(currDevice);
@@ -70,6 +91,10 @@ public class DeviceService extends Service {
                     ifEmptyThenSelfKill();
                 }
 
+                /**
+                 * Its a network error.
+                 * @param t
+                 */
                 @Override
                 public void onError(Throwable t) {
                     Toast.makeText(DeviceService.this, "Network Error", Toast.LENGTH_SHORT).show();
@@ -94,6 +119,12 @@ public class DeviceService extends Service {
         }
     }
 
+    /**
+     * This function stops monitoring a specific device.
+     *
+     * @param id
+     * @param currDevice
+     */
     private void stopMonitoring(int id, DeviceInfo currDevice) {
         Runnable task = monitorTasks.remove(id);
         if (task != null) {
@@ -107,12 +138,21 @@ public class DeviceService extends Service {
         ifEmptyThenSelfKill();
     }
 
+    /**
+     * If there is no device to monitor then stop the service.
+     */
     private void ifEmptyThenSelfKill() {
         if (deviceTokens.isEmpty() || monitorTasks.isEmpty()) {
             stopSelf();
         }
     }
 
+    /**
+     * This function turn on and off device. First it checks whether it needs to refresh token or not. then after refreshing or not refreshing it toggles the device power state.
+     *
+     * @param currDevice
+     * @param power
+     */
     private void toggleDevice(@NonNull TuyaDeviceToken currDevice, boolean power) {
         TuyaOpenApi api = TuyaOpenApi.getInstance();
 
@@ -167,6 +207,11 @@ public class DeviceService extends Service {
         });
     }
 
+    /**
+     * Starts the monitoring service.
+     *
+     * @param currDeviceToken
+     */
     private void startMonitoring(@NonNull TuyaDeviceToken currDeviceToken) {
         TuyaOpenApi api = TuyaOpenApi.getInstance();
         int id = currDeviceToken.getDevice().getId();
@@ -212,6 +257,13 @@ public class DeviceService extends Service {
         handler.post(task);
     }
 
+    /**
+     * Function used to pull showdown properties.
+     *
+     * @param r
+     * @param currDeviceToken
+     * @param id
+     */
     private void fetchInformation(Runnable r, @NonNull TuyaDeviceToken currDeviceToken, int id) {
         pullShadowPropertiesAndWrite(currDeviceToken);
         DeviceInfo updated = db.findById(id);
@@ -221,6 +273,11 @@ public class DeviceService extends Service {
         broadcastId(id);
     }
 
+    /**
+     * This function actually calls te tuya api to fetch the shadow properties.
+     *
+     * @param currDeviceToken
+     */
     private void pullShadowPropertiesAndWrite(@NonNull TuyaDeviceToken currDeviceToken) {
         TuyaOpenApi api = TuyaOpenApi.getInstance();
         api.shadowProperties(currDeviceToken.getDevice(), currDeviceToken.getToken(), new Callback<>() {
@@ -252,6 +309,8 @@ public class DeviceService extends Service {
                     boolean switchState = device.isTurnOn();
                     double power = 0, voltage = 0, current = 0;
                     try {
+                        // look for every code.
+                        // If matches with SWITCH, VOLTAGE, CURRENT, POWER then store the information.
                         List<TuyaShadowPropertiesResponse.Property> properties = body.getResult().getProperties();
                         for (var prop : properties) {
                             switch (prop.getCode()) {
@@ -271,12 +330,12 @@ public class DeviceService extends Service {
                         }
                     } catch (Exception ignored) {
                     }
-                    device.setTurnOn(switchState);
-                    db.updateDevice(device);
+//                    device.setTurnOn(switchState);
+//                    db.updateDevice(device);
                     power = power / 1000;
                     current = current / 1000;
                     voltage = voltage / 10;
-                    StatRecord record =new StatRecord(device.getId(), body.getTimestamp(), power, current, voltage);
+                    StatRecord record = new StatRecord(device.getId(), body.getTimestamp(), power, current, voltage);
                     statsDb.insertRecord(record);
                     sendBroadcast(
                         intentForBroadcast()

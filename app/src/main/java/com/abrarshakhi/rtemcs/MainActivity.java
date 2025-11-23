@@ -40,6 +40,13 @@ public class MainActivity extends AppCompatActivity {
     private DeviceListAdapter deviceListAdapter;
     private DeviceInfoDb db;
 
+    /**
+     *
+     * @param savedInstanceState If the activity is being re-initialized after
+     *     previously being shut down then this Bundle contains the data it most
+     *     recently supplied in {@link #onSaveInstanceState}.  <b><i>Note: Otherwise it is null.</i></b>
+     *
+     */
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -62,6 +69,9 @@ public class MainActivity extends AppCompatActivity {
         btnAddDevice.setOnClickListener(v -> startActivity(new Intent(MainActivity.this, DeviceInfoActivity.class)));
     }
 
+    /**
+     * If the activity is resumed.
+     */
     @Override
     protected void onResume() {
         super.onResume();
@@ -75,6 +85,9 @@ public class MainActivity extends AppCompatActivity {
         requestNotificationPermission();
     }
 
+    /**
+     * For foreground service first ask for sending network permission.
+     */
     private void requestNotificationPermission() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) { // Android 13+
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
